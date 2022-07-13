@@ -1,0 +1,15 @@
+We modified this original repo: https://github.com/leggedrobotics/legged_gym, to add training via RM
+
+# Train
+
+```
+python3 legged_gym/scripts/train.py --task=a1_flat --headless
+```
+
+# Test:
+
+    First update load_run and checkpoint in config file. Then, run:
+
+```
+python3 legged_gym/scripts/play.py --task=a1_flat
+```
