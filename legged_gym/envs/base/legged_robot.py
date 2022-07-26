@@ -39,17 +39,20 @@ from isaacgym import gymtorch, gymapi, gymutil
 
 import torch
 from torch import Tensor
+import torch.nn.functional as F
+
 from typing import Tuple, Dict
 
 from legged_gym import LEGGED_GYM_ROOT_DIR
-from legged_gym.envs.base.base_task import BaseTask
+#from legged_gym.envs.base.base_task import BaseTask
+from legged_gym.envs.base.base_RM_task import BaseRMTask
 from legged_gym.utils.terrain import Terrain
 from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
 from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
-class LeggedRobot(BaseTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
+class LeggedRobot(BaseRMTask):
+    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, rm_file):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -68,13 +71,40 @@ class LeggedRobot(BaseTask):
         self.debug_viz = False
         self.init_done = False
         self._parse_cfg(self.cfg)
-        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless)
+        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, rm_file)
 
         if not self.headless:
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
         self._init_buffers()
         self._prepare_reward_function()
         self.init_done = True
+
+    #Needed for RM implementation
+    #Returns the truth value of all propositional symbols, for each environment
+    def get_events(self):
+
+        #Get foot contact vector. See _reward_feet_air_time
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        foot_contacts = torch.logical_or(contact, self.last_contacts) 
+        self.last_contacts = contact
+
+        #Get foot heights
+        link_positions = self.gym.acquire_rigid_body_state_tensor(self.sim)
+        link_positions = gymtorch.wrap_tensor(link_positions)
+        foot_pos_z = link_positions.view(self.num_envs, 13, 17)[:, 2, self.feet_indices]
+
+        #Determine if each foot is sufficiently high enough to be considered "in air"
+        clearance_threshold = 0.05
+        foot_clearances = foot_pos_z > clearance_threshold
+
+        #Initialize propositional symbols vec to have no symbols true per env
+        prop_symbols = np.array(['' for _ in range(self.num_envs)])
+
+        #Determine if any propositional symbols are true
+        zz
+
+
+        return ""
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -94,7 +124,14 @@ class LeggedRobot(BaseTask):
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
+
+        #Update RM
+        true_props = self.get_events()
+
+        #Compute rewards, update observation buffer, etc...
         self.post_physics_step()
+
+
 
         # return clipped obs, clipped states (None), rewards, dones and infos
         clip_obs = self.cfg.normalization.clip_observations
@@ -187,6 +224,11 @@ class LeggedRobot(BaseTask):
         # send timeout info to the algorithm
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
+
+        # reset RMs indexed by env_ids
+        for _id in env_ids:
+            self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
+
     
     def compute_reward(self):
         """ Compute rewards
@@ -211,22 +253,26 @@ class LeggedRobot(BaseTask):
     def compute_observations(self):
         """ Computes observations
         """
-        """print("lin vel:", self.base_lin_vel * self.obs_scales.lin_vel,
-              "ang vel:", self.base_ang_vel  * self.obs_scales.ang_vel, 
-               "proj gravity:", self.projected_gravity,
-               "Commands:", self.commands[:, :3] * self.commands_scale,
-               "dof pos:", (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-               "dof vel:", self.dof_vel * self.obs_scales.dof_vel,
-               "actions:", self.actions)"""
 
-        self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+        """self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                                     #self.base_ang_vel  * self.obs_scales.ang_vel,
                                     #self.projected_gravity,
                                     #self.commands[:, :3] * self.commands_scale,
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions
-                                    ),dim=-1)
+                                    ),dim=-1)"""
+
+        self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+                            #self.base_ang_vel  * self.obs_scales.ang_vel,
+                            #self.projected_gravity,
+                            #self.commands[:, :3] * self.commands_scale,
+                            (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                            self.dof_vel * self.obs_scales.dof_vel,
+                            self.actions,
+                            F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states) #Add one-hot RM states
+                            ),dim=-1)
+
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements

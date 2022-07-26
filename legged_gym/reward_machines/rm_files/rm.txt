@@ -1,0 +1,6 @@
+0   # initial state
+[]  # terminal state
+(0,0,'!A',RewardA1Forward())
+(0,1,'A',PoseTransitionForward(10000))
+(1,1,'!B',RewardA1Forward())
+(1,0,'B',PoseTransitionForward(10000))
