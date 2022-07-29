@@ -81,6 +81,7 @@ class LeggedRobot(BaseRMTask):
 
     #Needed for RM implementation
     #Returns the truth value of all propositional symbols, for each environment
+    #Foot order: FL, FR, RL, RR
     def get_events(self):
 
         #Get foot contact vector. See _reward_feet_air_time
@@ -92,7 +93,7 @@ class LeggedRobot(BaseRMTask):
         link_positions = self.gym.acquire_rigid_body_state_tensor(self.sim)
         link_positions = gymtorch.wrap_tensor(link_positions)
         foot_pos_z = link_positions.view(self.num_envs, 13, 17)[:, 2, self.feet_indices]
-
+ 
         #Determine if each foot is sufficiently high enough to be considered "in air"
         clearance_threshold = 0.05
         foot_clearances = foot_pos_z > clearance_threshold
@@ -100,11 +101,65 @@ class LeggedRobot(BaseRMTask):
         #Initialize propositional symbols vec to have no symbols true per env
         prop_symbols = np.array(['' for _ in range(self.num_envs)])
 
-        #Determine if any propositional symbols are true
-        zz
+
+        """
+        Debug stuff
+
+        foot_contacts[94, 0] = 1
+        foot_contacts[93, 2] = 1
+        foot_contacts[101, 2] = 1
+        foot_contacts[101, 3] = 1
+        foot_contacts[404, 0] = 1
+        foot_contacts[404, 2] = 1
+        foot_contacts[404, 3] = 1
+        foot_contacts[409, 2] = 1
+        foot_contacts[409, 3] = 1
+
+        foot_clearances[101, 2] = True
+        foot_clearances[101, 3] = True
+
+        foot_clearances[409, 2] = True"""
+
+        #Get the environment ids for each foot contacts
+        FL_contact_env_ids = (foot_contacts[:,0] == True).nonzero(as_tuple=True)[0]
+        FR_contact_env_ids = (foot_contacts[:,1] == True).nonzero(as_tuple=True)[0]
+        RL_contact_env_ids = (foot_contacts[:,2] == True).nonzero(as_tuple=True)[0]
+        RR_contact_env_ids = (foot_contacts[:,3] == True).nonzero(as_tuple=True)[0]
+
+        #Find which env_ids have only FL and FR feet touching ground
+        FL_FR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), FR_contact_env_ids.cpu().numpy())
+
+        #Remove ids that have RL or RR contact
+        for idx in RL_contact_env_ids:
+            FL_FR_contacts = np.delete(FL_FR_contacts, np.where(FL_FR_contacts == idx.item()))
+
+        for idx in RR_contact_env_ids:
+            FL_FR_contacts = np.delete(FL_FR_contacts, np.where(FL_FR_contacts == idx.item()))
+
+        #Symbol 'A' is true when FR/FL feet are in air with enough clearance
+        for _id in FL_FR_contacts:
+            if(foot_clearances[_id, 0] and foot_clearances[_id, 1]):
+                print("A is true!!")
+                prop_symbols[_id] = 'A'
 
 
-        return ""
+        #Find which env_ids have only RL and RR feet touching ground
+        RL_RR_contacts = np.intersect1d(RL_contact_env_ids.cpu().numpy(), RR_contact_env_ids.cpu().numpy())
+
+        #Remove ids that have FL or FR contact
+        for idx in FL_contact_env_ids:
+            RL_RR_contacts = np.delete(RL_RR_contacts, np.where(RL_RR_contacts == idx.item()))
+
+        for idx in FR_contact_env_ids:
+            RL_RR_contacts = np.delete(RL_RR_contacts, np.where(RL_RR_contacts == idx.item()))
+
+        #Symbol 'B' is true when RR/RL feet are in air with enough clearance
+        for _id in RL_RR_contacts:
+            if(foot_clearances[_id, 2] and foot_clearances[_id, 3]):
+                print("B is true!!")
+                prop_symbols[_id] = 'B'
+
+        return prop_symbols
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -125,8 +180,17 @@ class LeggedRobot(BaseRMTask):
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
 
-        #Update RM
+        #Update RM states
+        self.compute_reward()
         true_props = self.get_events()
+        for env_id, rm in enumerate(self.reward_machines):
+
+            #info should contain info needed for RM reward computation
+            info = {'computed_reward': self.rew_buf[env_id]}
+
+            current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
+            self.current_rm_states_buf[env_id] = current_rm_state
+            #print(self.current_rm_states_buf[env_id])
 
         #Compute rewards, update observation buffer, etc...
         self.post_physics_step()
@@ -161,7 +225,7 @@ class LeggedRobot(BaseRMTask):
 
         # compute observations, rewards, resets, ...
         self.check_termination()
-        self.compute_reward()
+        #self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
@@ -601,7 +665,7 @@ class LeggedRobot(BaseRMTask):
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
 
     def _prepare_reward_function(self):
-        """ Prepares a list of reward functions, whcih will be called to compute the total reward.
+        """ Prepares a list of reward functions, which will be called to compute the total reward.
             Looks for self._reward_<REWARD_NAME>, where <REWARD_NAME> are names of all non zero reward scales in the cfg.
         """
         # remove zero scales + multiply non-zero ones by dt

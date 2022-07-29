@@ -62,10 +62,10 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
-        experiment_name = 'flat_a1'
-        max_iterations = 5 # number of policy updates
-        load_run = 'Jul13_09-58-35_' # folder directly containing model files
-        checkpoint = 5 # saved model iter
+        experiment_name = 'bounding_a1'
+        max_iterations = 500 # number of policy updates
+        load_run = 'Jul29_10-07-05_' # folder directly containing model files
+        checkpoint = 500 # saved model iter
 
 
   

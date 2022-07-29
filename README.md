@@ -6,7 +6,7 @@ We modified RM code to work with vectorized environments
 # Train
 
 ```
-python3 legged_gym/scripts/train.py --task=a1_flat --headless
+python3 legged_gym/scripts/train.py --task=a1_bounding --headless
 ```
 
 # Test:
@@ -14,5 +14,9 @@ python3 legged_gym/scripts/train.py --task=a1_flat --headless
     First update load_run and checkpoint in config file. Then, run:
 
 ```
-python3 legged_gym/scripts/play.py --task=a1_flat
+python3 legged_gym/scripts/play.py --task=a1_bounding
 ```
+
+# TODO
+
+Compute next RM states in parallel, to keep all computations on the GPU
