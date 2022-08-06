@@ -21,10 +21,21 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        #num_observations = 48
-        #num_observations = 45
-        #num_observations = 42
-        num_observations = 36
+        num_envs = 1000
+        num_observations = 39
+
+    #Walking 0.375, Trotting 0.9, Bouncing 1.5
+    class commands:
+        curriculum = False
+        max_curriculum = 1.
+        num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+        resampling_time = 10. # time before command are changed[s]
+        heading_command = True # if true: compute ang vel command from heading error
+        class ranges:
+            lin_vel_x = [0.9, 0.9] # min max [m/s]
+            lin_vel_y = [0, 0]   # min max [m/s]
+            ang_vel_yaw = [0, 0]    # min max [rad/s]
+            heading = [0, 0]
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'plane'
@@ -39,7 +50,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 6 #33Hz
+        decimation = 4
 
     class asset( LeggedRobotCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/a1/urdf/a1.urdf'
@@ -56,6 +67,13 @@ class A1BoundingCfg( LeggedRobotCfg ):
             torques = -0.0002
             dof_pos_limits = -10.0
             base_height = -10.0
+            #feet_air_time =  10.0
+            tracking_lin_vel = 1.0 #1.0
+
+            #tracking_ang_vel = 0.0
+            #lin_vel_z = 0.0
+            #collision = 0.0
+
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -64,7 +82,7 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 500 # number of policy updates
-        load_run = 'Jul29_10-07-05_' # folder directly containing model files
+        load_run = 'Aug06_12-02-30_' # folder directly containing model files
         checkpoint = 500 # saved model iter
 
 

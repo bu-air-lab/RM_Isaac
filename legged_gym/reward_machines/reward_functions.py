@@ -29,8 +29,7 @@ class ConstantRewardFunction(RewardFunction):
         return self.c
 
 #Bonus reward for taking an RM transition
-#Scaled by RMSelfLoopReward, to ensure direction is followed and energy consumption matters
-#Also ensures robot is not encouraged to take as many RM transitions as fast as possible
+#Scaled by velocity tracking reward, to discourage higher gait frequency
 class RMTransitionReward(RewardFunction):
 
     def __init__(self, bonus):
@@ -43,7 +42,10 @@ class RMTransitionReward(RewardFunction):
     #Only get a large bonus when we move far forward in x-direction
     def get_reward(self, s_info):
 
-        return RMSelfLoopReward().get_reward(s_info)*self.bonus
+        #print("Bonus reward:", RMSelfLoopReward().get_reward(s_info)*self.bonus)
+        #return RMSelfLoopReward().get_reward(s_info)*self.bonus
+
+        return s_info['velocity_tracking_reward']*self.bonus
 
 
 #Use base environment reward
@@ -59,4 +61,5 @@ class RMSelfLoopReward(RewardFunction):
     #Balance reward for moving in x-direction while minimizing movement in y-direction and energy consumption
     def get_reward(self, s_info):
 
+        #print("Reward:", s_info['computed_reward'])
         return s_info['computed_reward']

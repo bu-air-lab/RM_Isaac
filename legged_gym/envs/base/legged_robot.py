@@ -89,36 +89,22 @@ class LeggedRobot(BaseRMTask):
         foot_contacts = torch.logical_or(contact, self.last_contacts) 
         self.last_contacts = contact
 
+        #print(foot_contacts)
+
         #Get foot heights
-        link_positions = self.gym.acquire_rigid_body_state_tensor(self.sim)
-        link_positions = gymtorch.wrap_tensor(link_positions)
-        foot_pos_z = link_positions.view(self.num_envs, 13, 17)[:, 2, self.feet_indices]
+        #link_positions = self.gym.acquire_rigid_body_state_tensor(self.sim)
+        #link_positions = gymtorch.wrap_tensor(link_positions)
+
+        #foot_pos_z = link_positions.view(self.num_envs, 13, 17)[:, 2, self.feet_indices]
  
+        #print(foot_pos_z)
+
         #Determine if each foot is sufficiently high enough to be considered "in air"
-        clearance_threshold = 0.05
-        foot_clearances = foot_pos_z > clearance_threshold
+        #clearance_threshold = 0.25
+        #foot_clearances = foot_pos_z > clearance_threshold
 
         #Initialize propositional symbols vec to have no symbols true per env
         prop_symbols = np.array(['' for _ in range(self.num_envs)])
-
-
-        """
-        Debug stuff
-
-        foot_contacts[94, 0] = 1
-        foot_contacts[93, 2] = 1
-        foot_contacts[101, 2] = 1
-        foot_contacts[101, 3] = 1
-        foot_contacts[404, 0] = 1
-        foot_contacts[404, 2] = 1
-        foot_contacts[404, 3] = 1
-        foot_contacts[409, 2] = 1
-        foot_contacts[409, 3] = 1
-
-        foot_clearances[101, 2] = True
-        foot_clearances[101, 3] = True
-
-        foot_clearances[409, 2] = True"""
 
         #Get the environment ids for each foot contacts
         FL_contact_env_ids = (foot_contacts[:,0] == True).nonzero(as_tuple=True)[0]
@@ -127,7 +113,7 @@ class LeggedRobot(BaseRMTask):
         RR_contact_env_ids = (foot_contacts[:,3] == True).nonzero(as_tuple=True)[0]
 
         #Find which env_ids have only FL and FR feet touching ground
-        FL_FR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), FR_contact_env_ids.cpu().numpy())
+        """FL_FR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), FR_contact_env_ids.cpu().numpy())
 
         #Remove ids that have RL or RR contact
         for idx in RL_contact_env_ids:
@@ -138,9 +124,9 @@ class LeggedRobot(BaseRMTask):
 
         #Symbol 'A' is true when FR/FL feet are in air with enough clearance
         for _id in FL_FR_contacts:
-            if(foot_clearances[_id, 0] and foot_clearances[_id, 1]):
-                print("A is true!!")
-                prop_symbols[_id] = 'A'
+            #if(foot_clearances[_id, 0] and foot_clearances[_id, 1]):
+            #print("A is true!!")
+            prop_symbols[_id] = 'A'
 
 
         #Find which env_ids have only RL and RR feet touching ground
@@ -155,9 +141,43 @@ class LeggedRobot(BaseRMTask):
 
         #Symbol 'B' is true when RR/RL feet are in air with enough clearance
         for _id in RL_RR_contacts:
-            if(foot_clearances[_id, 2] and foot_clearances[_id, 3]):
-                print("B is true!!")
-                prop_symbols[_id] = 'B'
+            #if(foot_clearances[_id, 2] and foot_clearances[_id, 3]):
+            #print("B is true!!")
+            prop_symbols[_id] = 'B'"""
+
+
+        #Find which env_ids have only FL and RR feet touching ground
+        FL_RR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), RR_contact_env_ids.cpu().numpy())
+
+        #Remove ids that have RL or FR contact
+        for idx in RL_contact_env_ids:
+            FL_RR_contacts = np.delete(FL_RR_contacts, np.where(FL_RR_contacts == idx.item()))
+
+        for idx in FR_contact_env_ids:
+            FL_RR_contacts = np.delete(FL_RR_contacts, np.where(FL_RR_contacts == idx.item()))
+
+        #Symbol 'A' is true when FR/FL feet are in air with enough clearance
+        for _id in FL_RR_contacts:
+            #if(foot_clearances[_id, 0] and foot_clearances[_id, 1]):
+            #print("A is true!!")
+            prop_symbols[_id] = 'A'
+
+
+        #Find which env_ids have only FR and RL feet touching ground
+        FR_RL_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), RL_contact_env_ids.cpu().numpy())
+
+        #Remove ids that have FL or RR contact
+        for idx in FL_contact_env_ids:
+            FR_RL_contacts = np.delete(FR_RL_contacts, np.where(FR_RL_contacts == idx.item()))
+
+        for idx in RR_contact_env_ids:
+            FR_RL_contacts = np.delete(FR_RL_contacts, np.where(FR_RL_contacts == idx.item()))
+
+        #Symbol 'B' is true when RR/RL feet are in air with enough clearance
+        for _id in FR_RL_contacts:
+            #if(foot_clearances[_id, 2] and foot_clearances[_id, 3]):
+            #print("B is true!!")
+            prop_symbols[_id] = 'B'
 
         return prop_symbols
 
@@ -173,25 +193,35 @@ class LeggedRobot(BaseRMTask):
         self.render()
         for _ in range(self.cfg.control.decimation):
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
-            #print("Torques:", self.torques)
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
 
-        #Update RM states
+        #Needed to get foot coordinates for RM transition eval
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+
         self.compute_reward()
+            
+        #Update RM states
         true_props = self.get_events()
         for env_id, rm in enumerate(self.reward_machines):
 
             #info should contain info needed for RM reward computation
-            info = {'computed_reward': self.rew_buf[env_id]}
+            info = {'computed_reward': self.rew_buf[env_id],
+                    'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id]}
 
+            #Take RM step. Returns new RM state, and RM reward
             current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
-            self.current_rm_states_buf[env_id] = current_rm_state
-            #print(self.current_rm_states_buf[env_id])
 
+            #Update RM state
+            self.current_rm_states_buf[env_id] = current_rm_state
+
+            #Update reward
+            self.rew_buf[env_id] = rm_rew
+
+        #print(self.current_rm_states_buf)
         #Compute rewards, update observation buffer, etc...
         self.post_physics_step()
 
@@ -303,9 +333,9 @@ class LeggedRobot(BaseRMTask):
         for i in range(len(self.reward_functions)):
             name = self.reward_names[i]
             rew = self.reward_functions[i]() * self.reward_scales[name]
-            #print(name, rew)
             self.rew_buf += rew
             self.episode_sums[name] += rew
+
         if self.cfg.rewards.only_positive_rewards:
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
         # add termination reward after clipping
@@ -313,7 +343,7 @@ class LeggedRobot(BaseRMTask):
             rew = self._reward_termination() * self.reward_scales["termination"]
             self.rew_buf += rew
             self.episode_sums["termination"] += rew
-    
+
     def compute_observations(self):
         """ Computes observations
         """
@@ -327,14 +357,16 @@ class LeggedRobot(BaseRMTask):
                                     self.actions
                                     ),dim=-1)"""
 
+        rm_state_encoding = F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states)
+
         self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                             #self.base_ang_vel  * self.obs_scales.ang_vel,
                             #self.projected_gravity,
-                            #self.commands[:, :3] * self.commands_scale,
+                            self.commands[:, :3] * self.commands_scale,
                             (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                             self.dof_vel * self.obs_scales.dof_vel,
                             self.actions,
-                            F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states) #Add one-hot RM states
+                            rm_state_encoding
                             ),dim=-1)
 
         # add perceptive inputs if not blind
@@ -585,7 +617,7 @@ class LeggedRobot(BaseRMTask):
         Returns:
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
-        noise_vec = torch.zeros_like(self.obs_buf[0])
+        """noise_vec = torch.zeros_like(self.obs_buf[0])
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
@@ -595,10 +627,25 @@ class LeggedRobot(BaseRMTask):
         noise_vec[9:12] = 0. # commands
         noise_vec[12:24] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[24:36] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[36:48] = 0. # previous actions
+        noise_vec[36:48] = 0. # previous actions"""
+        noise_vec = torch.zeros_like(self.obs_buf[0])
+        self.add_noise = self.cfg.noise.add_noise
+        noise_scales = self.cfg.noise.noise_scales
+        noise_level = self.cfg.noise.noise_level
+        noise_vec[0:3] = 0. # commands
+        noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[27:40] = 0. # previous actions + RM state
         if self.cfg.terrain.measure_heights:
             noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
+
+        """
+                            (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                            self.dof_vel * self.obs_scales.dof_vel,
+                            self.actions,
+                            F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states) #Add one-hot RM states
+        """
 
     #----------------------------------------
     def _init_buffers(self):
@@ -675,6 +722,7 @@ class LeggedRobot(BaseRMTask):
                 self.reward_scales.pop(key) 
             else:
                 self.reward_scales[key] *= self.dt
+
         # prepare list of functions
         self.reward_functions = []
         self.reward_names = []
