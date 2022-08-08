@@ -82,7 +82,7 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 500 # number of policy updates
-        load_run = 'Aug06_12-02-30_' # folder directly containing model files
+        load_run = 'Aug06_14-07-06_' # folder directly containing model files
         checkpoint = 500 # saved model iter
 
 

@@ -116,9 +116,7 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
 
     if checkpoint==-1:
         models = [file for file in os.listdir(load_run) if 'model' in file]
-        print(models)
         models.sort(key=lambda m: '{0:0>15}'.format(m))
-        print(models)
         model = models[-1]
     else:
         model = "model_{}.pt".format(checkpoint) 
