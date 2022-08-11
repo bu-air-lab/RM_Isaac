@@ -1,0 +1,35 @@
+v0: RM bonus = scaled velocity_tracking reward. Very high frequency gait
+
+v1: Add penalty to RM bonus for torque. Wild behavior.
+
+v2: RM bonus = scaled computed_reward. Frequency kinda high, foot clearance low.
+
+v3: RM bonus = v3 but feet_air_time =  10.0. Same behavior as v2.
+
+v4: feet_air_time = 100.0. Robot lies on ground, lifts feet up
+
+v5: RM transition only happens when foot clearance > 0.05 (ground is 0.02)
+		Works, but back feet dont move forward much.
+		Increasing commanded velocity causes robot to stand still
+
+v6: reward from energy min paper, plus 0.05 foot clearance
+		Works, but gait is awkward and walking in circles
+
+
+v7: Removed foot clearance still awkward, still going in circles, base height very low.
+
+v8: Base height reward. x_vel_error -30 instead of -20. Train for 2k iters.
+	Didnt fix anything
+
+v9: simplify reward. linear_vel coefficient increase to 10. 
+	Works, very high frequency, and awkward.
+	** NOTHING LEARNED UNTIL 2K ITERS
+
+v10: v9 but enforce 0.05 foot clearance, 5k iters
+
+to try:
+
+	- enforce foot clearance
+	- Train on more iters
+	- tune linear vel coefficient
+	- Add challenging terrain

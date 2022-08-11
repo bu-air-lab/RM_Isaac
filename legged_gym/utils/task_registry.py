@@ -99,18 +99,15 @@ class TaskRegistry():
         sim_params = parse_sim_params(args, sim_params)
 
         #task_class is  <class 'legged_gym.envs.base.legged_robot.LeggedRobot'>
-        """env = task_class(   cfg=env_cfg,
-                            sim_params=sim_params,
-                            physics_engine=args.physics_engine,
-                            sim_device=args.sim_device,
-                            headless=args.headless,
-                            rm_file='legged_gym/reward_machines/rm_files/rm.txt')"""
+        rm_file = 'legged_gym/reward_machines/rm_files/' + args.gait + '.txt'
+
         env = task_class(   cfg=env_cfg,
                             sim_params=sim_params,
                             physics_engine=args.physics_engine,
                             sim_device=args.sim_device,
                             headless=args.headless,
-                            rm_file='legged_gym/reward_machines/rm_files/rm.txt')
+                            rm_file=rm_file,
+                            gait=args.gait)
         return env, env_cfg
 
 

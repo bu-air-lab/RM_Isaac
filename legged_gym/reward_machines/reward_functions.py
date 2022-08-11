@@ -43,9 +43,12 @@ class RMTransitionReward(RewardFunction):
     def get_reward(self, s_info):
 
         #print("Bonus reward:", RMSelfLoopReward().get_reward(s_info)*self.bonus)
-        #return RMSelfLoopReward().get_reward(s_info)*self.bonus
+        return s_info['computed_reward']*self.bonus
 
-        return s_info['velocity_tracking_reward']*self.bonus
+        #print("Torques:", s_info['torques_penalty'])
+        #print("Vel reward:", s_info['velocity_tracking_reward'])
+
+        #return s_info['velocity_tracking_reward']*self.bonus - (1.0 * s_info['torques_penalty'])
 
 
 #Use base environment reward

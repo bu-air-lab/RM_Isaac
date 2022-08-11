@@ -5,8 +5,10 @@ We modified RM code to work with vectorized environments
 
 # Train
 
+Gait types: walk, trot, bounce
+
 ```
-python3 legged_gym/scripts/train.py --task=a1_bounding --headless
+python3 legged_gym/scripts/train.py --task=a1_bounding --gait=walk --headless
 ```
 
 # Test:
@@ -14,7 +16,7 @@ python3 legged_gym/scripts/train.py --task=a1_bounding --headless
     First update load_run and checkpoint in config file. Then, run:
 
 ```
-python3 legged_gym/scripts/play.py --task=a1_bounding
+python3 legged_gym/scripts/play.py --task=a1_bounding --gait=walk
 ```
 
 # TODO

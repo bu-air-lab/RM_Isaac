@@ -33,7 +33,7 @@ rm_rewards = []
 #rm_stds = []
 
 #Deploy every policy (saved every 5 iterations)
-for policy_iter in range(0, 500, 5):
+for policy_iter in range(0, 500, 10):
 
     # load policy
     train_cfg.runner.resume = True

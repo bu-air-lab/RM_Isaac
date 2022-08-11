@@ -1,0 +1,10 @@
+0   # initial state
+[]  # terminal state
+(0,0,'!A',RMSelfLoopReward())
+(0,1,'A',RMTransitionReward(1000))
+(1,1,'!B',RMSelfLoopReward())
+(1,2,'B',RMTransitionReward(1000))
+(2,2,'!C',RMSelfLoopReward())
+(2,3,'C',RMTransitionReward(1000))
+(3,3,'!D',RMSelfLoopReward())
+(3,0,'D',RMTransitionReward(1000))

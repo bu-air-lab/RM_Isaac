@@ -63,17 +63,12 @@ class A1BoundingCfg( LeggedRobotCfg ):
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.27
-        class scales( LeggedRobotCfg.rewards.scales ):
-            torques = -0.0002
-            dof_pos_limits = -10.0
-            base_height = -10.0
-            #feet_air_time =  10.0
-            tracking_lin_vel = 1.0 #1.0
-
-            #tracking_ang_vel = 0.0
-            #lin_vel_z = 0.0
-            #collision = 0.0
-
+        #class scales( LeggedRobotCfg.rewards.scales ):
+            #torques = -0.0002
+            #dof_pos_limits = -10.0
+            #base_height = -10.0
+            #tracking_lin_vel = 1.0 #1.0
+            #feet_air_time =  100.0
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -81,9 +76,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 500 # number of policy updates
-        load_run = 'Aug06_14-07-06_' # folder directly containing model files
-        checkpoint = 500 # saved model iter
+        max_iterations = 5000 # number of policy updates
+        load_run = 'v9' # folder directly containing model files
+        checkpoint = 2000 # saved model iter
 
 
   
