@@ -33,6 +33,8 @@ from numpy.random import choice
 from scipy import interpolate
 
 from isaacgym import terrain_utils
+from isaacgym.terrain_utils import *
+
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 
 class Terrain:
@@ -57,6 +59,7 @@ class Terrain:
         self.tot_cols = int(cfg.num_cols * self.width_per_env_pixels) + 2 * self.border
         self.tot_rows = int(cfg.num_rows * self.length_per_env_pixels) + 2 * self.border
 
+
         self.height_field_raw = np.zeros((self.tot_rows , self.tot_cols), dtype=np.int16)
         if cfg.curriculum:
             self.curiculum()
@@ -66,12 +69,13 @@ class Terrain:
             self.randomized_terrain()   
         
         self.heightsamples = self.height_field_raw
+
         if self.type=="trimesh":
             self.vertices, self.triangles = terrain_utils.convert_heightfield_to_trimesh(   self.height_field_raw,
                                                                                             self.cfg.horizontal_scale,
                                                                                             self.cfg.vertical_scale,
                                                                                             self.cfg.slope_treshold)
-    
+
     def randomized_terrain(self):
         for k in range(self.cfg.num_sub_terrains):
             # Env coordinates in the world
@@ -100,10 +104,10 @@ class Terrain:
             terrain = terrain_utils.SubTerrain("terrain",
                               width=self.width_per_env_pixels,
                               length=self.width_per_env_pixels,
-                              vertical_scale=self.vertical_scale,
-                              horizontal_scale=self.horizontal_scale)
+                              vertical_scale=self.cfg.vertical_scale,
+                              horizontal_scale=self.cfg.horizontal_scale)
 
-            eval(terrain_type)(terrain, **self.cfg.terrain_kwargs.terrain_kwargs)
+            eval(terrain_type)(terrain, **self.cfg.terrain_kwargs)
             self.add_terrain_to_map(terrain, i, j)
     
     def make_terrain(self, choice, difficulty):

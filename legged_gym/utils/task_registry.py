@@ -107,55 +107,11 @@ class TaskRegistry():
                             sim_device=args.sim_device,
                             headless=args.headless,
                             rm_file=rm_file,
-                            gait=args.gait)
+                            gait=args.gait,
+                            experiment_type=args.experiment)
         return env, env_cfg
 
 
-    #def make_RM_env(self, name, args=None, env_cfg=None) -> Tuple[VecEnv, LeggedRobotCfg]:
-        """ Creates an environment either from a registered namme or from the provided config file.
-
-        Args:
-            name (string): Name of a registered env.
-            args (Args, optional): Isaac Gym comand line arguments. If None get_args() will be called. Defaults to None.
-            env_cfg (Dict, optional): Environment config file used to override the registered config. Defaults to None.
-
-        Raises:
-            ValueError: Error if no registered env corresponds to 'name' 
-
-        Returns:
-            isaacgym.VecTaskPython: The created environment
-            Dict: the corresponding config file
-        """
-        # if no args passed get command line arguments
-        """if args is None:
-            args = get_args()
-        # check if there is a registered env with that name
-        if name in self.task_classes:
-            task_class = self.get_task_class(name)
-        else:
-            raise ValueError(f"Task with name: {name} was not registered")
-
-        if env_cfg is None:
-            # load config files
-            env_cfg, _ = self.get_cfgs(name)
-        # override cfg from args (if specified)
-        env_cfg, _ = update_cfg_from_args(env_cfg, None, args)
-        set_seed(env_cfg.seed)
-        # parse sim params (convert to dict first)
-        sim_params = {"sim": class_to_dict(env_cfg.sim)}
-        sim_params = parse_sim_params(args, sim_params)
-
-        #task_class is  <class 'legged_gym.envs.base.legged_robot.LeggedRobot'>
-        env = task_class(   cfg=env_cfg,
-                            sim_params=sim_params,
-                            physics_engine=args.physics_engine,
-                            sim_device=args.sim_device,
-                            headless=args.headless)
-
-        rm_env = RewardMachineEnv(env, 'legged_gym/reward_machines/rm_files/rm.txt')
-        zz
-
-        return rm_env, env_cfg"""
 
     def make_alg_runner(self, env, name=None, args=None, train_cfg=None, log_root="default") -> Tuple[OnPolicyRunner, LeggedRobotCfgPPO]:
         """ Creates the training algorithm  either from a registered namme or from the provided config file.

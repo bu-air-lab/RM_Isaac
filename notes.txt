@@ -25,7 +25,48 @@ v9: simplify reward. linear_vel coefficient increase to 10.
 	Works, very high frequency, and awkward.
 	** NOTHING LEARNED UNTIL 2K ITERS
 
-v10: v9 but enforce 0.05 foot clearance, 5k iters
+v10: v9 but enforce 0.05 foot clearance, 5k iters.
+	Falls over.
+
+	Remove 0.05 clearance, try bouncing gait (same otherwise as v9).
+	Command vel only 0.9. bounced in circle, very awkward
+
+v11: v9 but over more complex terrain
+	Falls immediately...
+	Try less challenging terrain: Still falls
+	energy coefficient 0.01, refactor code
+		Works, frequency is good, but position is awkward (back legs weird, base low)
+			Trained for 1500 iters of 2k envs
+
+v12:
+	v11 but harder terrain
+	position still awkward
+
+v13:
+	v12 but restrict hip joint movement (action scale less for hips)
+	Better, but back legs don't swing forward enough. Also, base height is low.
+
+v14:
+	v13 but base height reward term (-10 not enough)
+	more significant penalty (-100)
+	Base is very tilted to reach base height. Back legs still extended
+	Base orientation penalty instead of base height penalty
+	Base orientation is fixed, but now base height is very low. Back lefgs still extended
+	Add base height penalty
+	Works, but back legs still extended...
+
+v15:
+	Somehow enforce back legs not exteneded out so far. 
+
+	Add backward commands
+
+	Now back legs are good, but front legs fully extended
+
+		**This works. Now 
+
+v16:
+
+	train on forward and backward commands, only 0.9 and -0.9
 
 to try:
 

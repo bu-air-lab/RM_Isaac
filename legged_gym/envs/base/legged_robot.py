@@ -33,6 +33,7 @@ from time import time
 from warnings import WarningMessage
 import numpy as np
 import os
+import random
 from functools import reduce
 
 from isaacgym.torch_utils import *
@@ -53,7 +54,7 @@ from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
 class LeggedRobot(BaseRMTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, rm_file, gait):
+    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, rm_file, gait, experiment_type):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -69,6 +70,7 @@ class LeggedRobot(BaseRMTask):
         self.cfg = cfg
         self.sim_params = sim_params
         self.gait=gait
+        self.experiment_type = experiment_type
         self.height_samples = None
         self.debug_viz = False
         self.init_done = False
@@ -79,6 +81,7 @@ class LeggedRobot(BaseRMTask):
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
         self._init_buffers()
         self._prepare_reward_function()
+        self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
         self.init_done = True
 
     #Needed for RM implementation
@@ -89,13 +92,14 @@ class LeggedRobot(BaseRMTask):
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         foot_contacts = torch.logical_or(contact, self.last_contacts) 
+        self.last_contacts = contact
 
         #Foot order is different: FR, FL, RR, RL
-        feet_z_positions = self.link_positions[:, self.feet_indices, 2]
+        #feet_z_positions = self.link_positions[:, self.feet_indices, 2]
 
         #Determine if each foot is sufficiently high enough to be considered "in air"
-        clearance_threshold = 0.05 #ground is 0.02
-        foot_clearances = feet_z_positions > clearance_threshold
+        #clearance_threshold = 0.05 #ground is 0.02
+        #foot_clearances = feet_z_positions > clearance_threshold
 
 
         #Initialize propositional symbols vec to have no symbols true per env
@@ -107,7 +111,7 @@ class LeggedRobot(BaseRMTask):
         RL_contact_env_ids = (foot_contacts[:,2] == True).nonzero(as_tuple=True)[0]
         RR_contact_env_ids = (foot_contacts[:,3] == True).nonzero(as_tuple=True)[0]
 
-        if(self.gait == 'trot')
+        if(self.gait == 'trot'):
 
             #Find which env_ids have only FL and RR feet touching ground
             FL_RR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), RR_contact_env_ids.cpu().numpy())
@@ -121,9 +125,9 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'A' is true when FL/RR feet are in air with enough clearance
             for _id in FL_RR_contacts:
-                if(foot_clearances[_id, 1] and foot_clearances[_id, 2]):
+                #if(foot_clearances[_id, 1] and foot_clearances[_id, 2]):
                     #print("A is true!!")
-                    prop_symbols[_id] = 'A'
+                prop_symbols[_id] = 'A'
 
 
             #Find which env_ids have only FR and RL feet touching ground
@@ -138,11 +142,11 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'B' is true when FR/RL feet are in air with enough clearance
             for _id in FR_RL_contacts:
-                if(foot_clearances[_id, 0] and foot_clearances[_id, 3]):
+                #if(foot_clearances[_id, 0] and foot_clearances[_id, 3]):
                     #print("B is true!!")
-                    prop_symbols[_id] = 'B'
+                prop_symbols[_id] = 'B'
 
-        elif(self.gait == 'bounce')
+        elif(self.gait == 'bounce'):
 
             #Find which env_ids have all feet touching ground
             #all_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), FR_contact_env_ids.cpu().numpy())
@@ -190,8 +194,8 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'A' is true when FR foot is in air with enough clearance
             for _id in FL_RR_RL_contacts:
-                if(foot_clearances[_id, 0]):
-                    prop_symbols[_id] = 'A'
+                #if(foot_clearances[_id, 0]):
+                prop_symbols[_id] = 'A'
 
             #Find env ids with FR, FL, RR, feet touching ground
             FR_FL_RR_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), FL_contact_env_ids.cpu().numpy())
@@ -203,8 +207,8 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'B' is true when RL foot is in air with enough clearance
             for _id in FR_FL_RR_contacts:
-                if(foot_clearances[_id, 3]):
-                    prop_symbols[_id] = 'B'
+                #if(foot_clearances[_id, 3]):
+                prop_symbols[_id] = 'B'
 
             #Find env ids with FR, RR, RL feet touching ground
             FR_RL_RR_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), RL_contact_env_ids.cpu().numpy())
@@ -216,8 +220,8 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'C' is true when FL foot is in air with enough clearance
             for _id in FR_RL_RR_contacts:
-                if(foot_clearances[_id, 1]):
-                    prop_symbols[_id] = 'C'
+                #if(foot_clearances[_id, 1]):
+                prop_symbols[_id] = 'C'
 
             #Find env ids with FR, FL, RL feet touching ground
             FR_FL_RL_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), FL_contact_env_ids.cpu().numpy())
@@ -229,8 +233,8 @@ class LeggedRobot(BaseRMTask):
 
             #Symbol 'D' is true when RR foot is in air with enough clearance
             for _id in FR_FL_RL_contacts:
-                if(foot_clearances[_id, 2]):
-                    prop_symbols[_id] = 'D'
+                #if(foot_clearances[_id, 2]):
+                prop_symbols[_id] = 'D'
 
 
         return prop_symbols
@@ -241,8 +245,10 @@ class LeggedRobot(BaseRMTask):
         Args:
             actions (torch.Tensor): Tensor of shape (num_envs, num_actions_per_env)
         """
+
         clip_actions = self.cfg.normalization.clip_actions
         self.actions = torch.clip(actions, -clip_actions, clip_actions).to(self.device)
+
         # step physics and render each frame
         self.render()
         for _ in range(self.cfg.control.decimation):
@@ -254,30 +260,12 @@ class LeggedRobot(BaseRMTask):
             self.gym.refresh_dof_state_tensor(self.sim)
 
 
-        self.compute_reward()
+        #self.compute_reward()
+        #self.experiment_type
             
-        #Update RM states
-        true_props = self.get_events()
-        for env_id, rm in enumerate(self.reward_machines):
 
-            #info should contain info needed for RM reward computation
-            info = {'computed_reward': self.rew_buf[env_id]}
-                    #'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id],
-                    #'torques_penalty': self._reward_torques()[env_id]}
-
-            #Take RM step. Returns new RM state, and RM reward
-            current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
-
-            #Update RM state
-            self.current_rm_states_buf[env_id] = current_rm_state
-
-            #Update reward
-            self.rew_buf[env_id] = rm_rew
-
-        #print(self.current_rm_states_buf)
-        #Compute rewards, update observation buffer, etc...
+        #Compute rewards, update observation buffer (including RM state), etc...
         self.post_physics_step()
-
 
 
         # return clipped obs, clipped states (None), rewards, dones and infos
@@ -296,7 +284,7 @@ class LeggedRobot(BaseRMTask):
         self.gym.refresh_net_contact_force_tensor(self.sim)
 
         #Needed to get foot coordinates for RM transition eval
-        self.gym.refresh_rigid_body_state_tensor(self.sim)
+        #self.gym.refresh_rigid_body_state_tensor(self.sim)
 
         self.episode_length_buf += 1
         self.common_step_counter += 1
@@ -311,9 +299,30 @@ class LeggedRobot(BaseRMTask):
 
         # compute observations, rewards, resets, ...
         self.check_termination()
-        #self.compute_reward()
+        self.compute_reward()
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
+
+
+        #Update RM states
+        if(self.experiment_type == 'rm'):
+            true_props = self.get_events()
+            for env_id, rm in enumerate(self.reward_machines):
+
+                #info should contain info needed for RM reward computation
+                info = {'computed_reward': self.rew_buf[env_id]}
+                        #'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id],
+                        #'torques_penalty': self._reward_torques()[env_id]}
+
+                #Take RM step. Returns new RM state, and RM reward
+                current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
+
+                #Update RM state
+                self.current_rm_states_buf[env_id] = current_rm_state
+
+                #Update reward
+                self.rew_buf[env_id] = rm_rew
+
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
         self.last_actions[:] = self.actions[:]
@@ -376,8 +385,9 @@ class LeggedRobot(BaseRMTask):
             self.extras["time_outs"] = self.time_out_buf
 
         # reset RMs indexed by env_ids
-        for _id in env_ids:
-            self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
+        if(self.experiment_type == 'rm'):
+            for _id in env_ids:
+                self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
 
     
     def compute_reward(self):
@@ -404,26 +414,29 @@ class LeggedRobot(BaseRMTask):
         """ Computes observations
         """
 
-        """self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
-                                    #self.base_ang_vel  * self.obs_scales.ang_vel,
-                                    #self.projected_gravity,
-                                    #self.commands[:, :3] * self.commands_scale,
-                                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-                                    self.dof_vel * self.obs_scales.dof_vel,
-                                    self.actions
-                                    ),dim=-1)"""
+        if(self.experiment_type == 'rm'):
 
-        rm_state_encoding = F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states)
+            rm_state_encoding = F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states)
+            self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+                                #self.base_ang_vel  * self.obs_scales.ang_vel,
+                                #self.projected_gravity,
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions,
+                                rm_state_encoding
+                                ),dim=-1)
 
-        self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
-                            #self.base_ang_vel  * self.obs_scales.ang_vel,
-                            #self.projected_gravity,
-                            self.commands[:, :3] * self.commands_scale,
-                            (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-                            self.dof_vel * self.obs_scales.dof_vel,
-                            self.actions,
-                            rm_state_encoding
-                            ),dim=-1)
+        else:
+
+            self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+                                #self.base_ang_vel  * self.obs_scales.ang_vel,
+                                #self.projected_gravity,
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions
+                                ),dim=-1)
 
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
@@ -549,7 +562,14 @@ class LeggedRobot(BaseRMTask):
         Args:
             env_ids (List[int]): Environments ids for which new commands are needed
         """
-        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+
+        #Consider lin_vel_x command as a random choice between lower and upper bound only
+        lin_vel_x_command = torch.randint(0,2,(len(env_ids), 1), device=self.device).float()
+        lin_vel_x_command[lin_vel_x_command == 0] = self.command_ranges["lin_vel_x"][0]
+        lin_vel_x_command[lin_vel_x_command == 1] = self.command_ranges["lin_vel_x"][1]
+        self.commands[env_ids, 0] = lin_vel_x_command.squeeze(1)
+
+        #self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         if self.cfg.commands.heading_command:
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
@@ -571,7 +591,13 @@ class LeggedRobot(BaseRMTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
-        actions_scaled = actions * self.cfg.control.action_scale
+        #actions_scaled = actions * self.cfg.control.action_scale
+        actions_scaled = actions * self.action_scale
+
+        #out, inds = torch.max(actions_scaled,dim=0)
+        #print(out)
+        #zz
+
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
@@ -817,7 +843,7 @@ class LeggedRobot(BaseRMTask):
     def _create_heightfield(self):
         """ Adds a heightfield terrain to the simulation, sets parameters based on the cfg.
         """
-        hf_params = gymapi.HeightFieldProperties()
+        hf_params = gymapi.HeightFieldParams()
         hf_params.column_scale = self.terrain.horizontal_scale
         hf_params.row_scale = self.terrain.horizontal_scale
         hf_params.vertical_scale = self.terrain.vertical_scale
@@ -846,6 +872,7 @@ class LeggedRobot(BaseRMTask):
         tm_params.static_friction = self.cfg.terrain.static_friction
         tm_params.dynamic_friction = self.cfg.terrain.dynamic_friction
         tm_params.restitution = self.cfg.terrain.restitution
+
         self.gym.add_triangle_mesh(self.sim, self.terrain.vertices.flatten(order='C'), self.terrain.triangles.flatten(order='C'), tm_params)   
         self.height_samples = torch.tensor(self.terrain.heightsamples).view(self.terrain.tot_rows, self.terrain.tot_cols).to(self.device)
 
@@ -1108,16 +1135,20 @@ class LeggedRobot(BaseRMTask):
         # penalize torques too close to the limit
         return torch.sum((torch.abs(self.torques) - self.torque_limits*self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)"""
 
+    def _reward_orientation(self):
+        # Penalize non flat base orientation
+        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
+
     def _reward_tracking_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
         lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
         return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
     
 
-    """def _reward_base_height(self):
+    def _reward_base_height(self):
         # Penalize base height away from target
         base_height = torch.mean(self.root_states[:, 2].unsqueeze(1) - self.measured_heights, dim=1)
-        return torch.square(base_height - self.cfg.rewards.base_height_target)"""
+        return torch.square(base_height - self.cfg.rewards.base_height_target)
 
     """def _reward_tracking_lin_vel(self):
 

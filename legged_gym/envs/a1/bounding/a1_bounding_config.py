@@ -21,7 +21,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_envs = 1000
+        num_envs = 2000
         num_observations = 39
 
     #Walking 0.375, Trotting 0.9, Bouncing 1.5
@@ -32,15 +32,10 @@ class A1BoundingCfg( LeggedRobotCfg ):
         resampling_time = 10. # time before command are changed[s]
         heading_command = True # if true: compute ang vel command from heading error
         class ranges:
-            lin_vel_x = [0.9, 0.9] # min max [m/s]
+            lin_vel_x = [-0.9, 0.9] # min max [m/s]
             lin_vel_y = [0, 0]   # min max [m/s]
             ang_vel_yaw = [0, 0]    # min max [rad/s]
             heading = [0, 0]
-
-    class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = 'plane'
-        measure_heights = False
-  
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -76,9 +71,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 5000 # number of policy updates
-        load_run = 'v9' # folder directly containing model files
-        checkpoint = 2000 # saved model iter
+        max_iterations = 2500 # number of policy updates
+        load_run = 'v15' # folder directly containing model files
+        checkpoint = 2500 # saved model iter
 
 
   
