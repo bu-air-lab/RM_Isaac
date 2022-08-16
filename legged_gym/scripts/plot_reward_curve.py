@@ -18,10 +18,15 @@ env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
 
 # override some parameters for testing
 env_cfg.env.num_envs = 10
+
+env_cfg.terrain.mesh_type = 'plane'
+env_cfg.terrain.measure_heights = False
 env_cfg.terrain.num_rows = 5
 env_cfg.terrain.num_cols = 5
 env_cfg.terrain.curriculum = False
+
 env_cfg.noise.add_noise = False
+
 env_cfg.domain_rand.randomize_friction = False
 env_cfg.domain_rand.push_robots = False
 
@@ -29,37 +34,52 @@ env_cfg.domain_rand.push_robots = False
 env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 obs = env.get_observations()
 
-rm_rewards = []
-#rm_stds = []
+methods = ['RM', 'baseline']
 
-#Deploy every policy (saved every 5 iterations)
-for policy_iter in range(0, 500, 10):
+rewards = []
 
-    # load policy
-    train_cfg.runner.resume = True
-    train_cfg.runner.checkpoint = policy_iter
-    #train_cfg.runner.load_run = ''
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-    policy = ppo_runner.get_inference_policy(device=env.device)
+num_saved_policies = 500
+num_iters = int(num_saved_policies/10)
+iter_amount = 100
 
-    #Deploy policy over 10 envs at once
-    #Compute total reward accross all envs.
-    reward = 0
-    for i in range(int(env.max_episode_length)):
-        actions = policy(obs.detach())
-        obs, _, rews, dones, infos = env.step(actions.detach())
-        reward += torch.sum(rews).item()
+for method in methods:
 
-    #Add avg reward a single policy achieved
-    rm_rewards.append(reward/env_cfg.env.num_envs)
+    method_rewards = []
+
+    #Deploy every policy (saved every 5 iterations)
+    for policy_iter in range(0, num_iters*iter_amount, iter_amount):
+
+        # load policy
+        train_cfg.runner.resume = True
+        train_cfg.runner.checkpoint = policy_iter
+        #train_cfg.runner.load_run = ''
+        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+        policy = ppo_runner.get_inference_policy(device=env.device)
+
+        #Deploy policy over 10 envs at once
+        #Compute total reward accross all envs.
+        reward = 0
+        for i in range(int(env.max_episode_length)):
+            actions = policy(obs.detach())
+            obs, _, rews, dones, infos = env.step(actions.detach())
+
+            reward += torch.sum(infos['non_RM_reward']).item()
+            #reward += torch.sum(rews).item()
+
+        #Add avg reward a single policy achieved
+        method_rewards.append(reward/env_cfg.env.num_envs)
+
+    rewards.append(method_rewards)
 
 
 fig, ax = plt.subplots()
-time = [i*5 for i in range(100)]
+time = [i*iter_amount for i in range(num_iters)]
 
-ax.plot(time, rm_rewards)
-plt.xlabel('Training Iterations (in millions)')
-plt.ylabel('Average Reward')
+for i,method in enumerate(methods):
+    ax.plot(time, rewards[i])
+
+plt.xlabel('Training Iterations')
+plt.ylabel('Reward')
 plt.savefig("plot.pdf", bbox_inches='tight')
 
 

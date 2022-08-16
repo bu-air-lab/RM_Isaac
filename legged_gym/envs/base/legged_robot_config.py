@@ -142,8 +142,8 @@ class LeggedRobotCfg(BaseConfig):
             #dof_vel = -0.
             #dof_acc = -2.5e-7
             base_height = -100.0 
-            #feet_air_time =  1.0
-            #collision = -1.
+            #feet_air_time =  10.0
+            collision = -10.0
             #feet_stumble = -0.0 
             #action_rate = -0.01
             #stand_still = -0.

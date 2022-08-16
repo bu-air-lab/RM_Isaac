@@ -21,7 +21,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_envs = 2000
+        num_envs = 4096
         num_observations = 39
 
     #Walking 0.375, Trotting 0.9, Bouncing 1.5
@@ -71,9 +71,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 2500 # number of policy updates
-        load_run = 'v15' # folder directly containing model files
-        checkpoint = 2500 # saved model iter
+        max_iterations = 1500 # number of policy updates
+        load_run = 'v1' # folder directly containing model files
+        checkpoint = 5000 # saved model iter
 
 
   
