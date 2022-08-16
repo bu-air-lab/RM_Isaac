@@ -39,7 +39,7 @@ from legged_gym.reward_machines.reward_machine import RewardMachine
 # Base class for RL tasks
 class BaseRMTask():
 
-    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, rm_file):
+    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, rm_file, experiment_type):
 
         self.gym = gymapi.acquire_gym()
 
@@ -69,24 +69,17 @@ class BaseRMTask():
         torch._C._jit_set_profiling_executor(False)
 
 
-        # Loading the reward machines, 1 per env
-        self.reward_machines = []
-        for i in range(self.num_envs):
-            self.reward_machines.append(RewardMachine(rm_file))
-        self.num_rm_states = len(self.reward_machines[0].get_states()) #Each RM has same number of states
+        self.num_obs = cfg.env.num_observations
 
-        # Computing one-hot encodings for the non-terminal RM states
-        """self.rm_state_features = {}
-        for u_id in self.reward_machines[0].get_states():
-            u_features = np.zeros(self.num_rm_states)
-            u_features[len(self.rm_state_features)] = 1
-            self.rm_state_features[u_id] = u_features
-        self.rm_done_feat = np.zeros(self.num_rm_states)""" # for terminal RM states, we give as features an array of zeros
+        if(experiment_type == 'rm'):
 
-        #print(self.rm_state_features)
-        #{0: array([1., 0.]), 1: array([0., 1.])}
+            # Loading the reward machines, 1 per env
+            self.reward_machines = []
+            for i in range(self.num_envs):
+                self.reward_machines.append(RewardMachine(rm_file))
+            self.num_rm_states = len(self.reward_machines[0].get_states()) #Each RM has same number of states
 
-        self.num_obs = cfg.env.num_observations + self.num_rm_states
+            self.num_obs += self.num_rm_states
 
 
         # allocate buffers

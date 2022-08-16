@@ -75,7 +75,7 @@ class LeggedRobot(BaseRMTask):
         self.debug_viz = False
         self.init_done = False
         self._parse_cfg(self.cfg)
-        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, rm_file)
+        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, rm_file, self.experiment_type)
 
         if not self.headless:
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
