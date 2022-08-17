@@ -34,7 +34,9 @@ from isaacgym import gymutil
 import numpy as np
 import torch
 
-from legged_gym.reward_machines.reward_machine import RewardMachine
+#from legged_gym.reward_machines.reward_machine import RewardMachine
+from legged_gym.reward_machines.vec_reward_machine import VecRewardMachine
+
 
 # Base class for RL tasks
 class BaseRMTask():
@@ -71,14 +73,16 @@ class BaseRMTask():
 
         self.num_obs = cfg.env.num_observations
 
+        # Loading the reward machines, 1 per env
+        """self.reward_machines = []
+        for i in range(self.num_envs):
+            self.reward_machines.append(RewardMachine(rm_file))
+        self.num_rm_states = len(self.reward_machines[0].get_states()) #Each RM has same number of states"""
+
+        self.reward_machine = VecRewardMachine(self.num_envs, self.device)
+        self.num_rm_states = 2
+
         if(experiment_type == 'rm'):
-
-            # Loading the reward machines, 1 per env
-            self.reward_machines = []
-            for i in range(self.num_envs):
-                self.reward_machines.append(RewardMachine(rm_file))
-            self.num_rm_states = len(self.reward_machines[0].get_states()) #Each RM has same number of states
-
             self.num_obs += self.num_rm_states
 
 

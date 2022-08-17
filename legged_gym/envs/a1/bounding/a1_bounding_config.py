@@ -21,7 +21,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_envs = 4096
+        num_envs = 2000
         num_observations = 36
 
     #Walking 0.375, Trotting 0.9, Bouncing 1.5

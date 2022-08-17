@@ -82,162 +82,59 @@ class LeggedRobot(BaseRMTask):
         self._init_buffers()
         self._prepare_reward_function()
         #self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
+
+        #Initialize masks needed for evaluation of propositional symbols truth values
+        #Foot order: FL, FR, RL, RR
+        self.FL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_RR_mask[:,0] = 1
+        self.FL_RR_mask[:,3] = 1
+
+        self.FR_RL_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FR_RL_mask[:,1] = 1
+        self.FR_RL_mask[:,2] = 1
+
         self.init_done = True
 
     #Needed for RM implementation
     #Returns the truth value of all propositional symbols, for each environment
     def get_events(self):
 
-        #Get foot contact vector. 
+        #0 means no symbols true.
+        #1 means transition from q0 -> q1
+        #2 means transition from q1 -> q0
+        prop_symbols = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         foot_contacts = torch.logical_or(contact, self.last_contacts) 
         self.last_contacts = contact
 
-        #Foot order is different: FR, FL, RR, RL
-        #feet_z_positions = self.link_positions[:, self.feet_indices, 2]
-
-        #Determine if each foot is sufficiently high enough to be considered "in air"
-        #clearance_threshold = 0.05 #ground is 0.02
-        #foot_clearances = feet_z_positions > clearance_threshold
-
-
-        #Initialize propositional symbols vec to have no symbols true per env
-        prop_symbols = np.array(['' for _ in range(self.num_envs)])
-
-        #Get the environment ids for each foot contacts
-        FL_contact_env_ids = (foot_contacts[:,0] == True).nonzero(as_tuple=True)[0]
-        FR_contact_env_ids = (foot_contacts[:,1] == True).nonzero(as_tuple=True)[0]
-        RL_contact_env_ids = (foot_contacts[:,2] == True).nonzero(as_tuple=True)[0]
-        RR_contact_env_ids = (foot_contacts[:,3] == True).nonzero(as_tuple=True)[0]
-
         if(self.gait == 'trot'):
 
-            #Find which env_ids have only FL and RR feet touching ground
-            FL_RR_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), RR_contact_env_ids.cpu().numpy())
+            #Filter out environments based on which have exclusively FL/RR feet contacts or exclusively FR/RL contacts
+            FL_RR_masked = foot_contacts*self.FL_RR_mask
+            FR_RL_masked = foot_contacts*self.FR_RL_mask
 
-            #Remove ids that have RL or FR contact
-            for idx in RL_contact_env_ids:
-                FL_RR_contacts = np.delete(FL_RR_contacts, np.where(FL_RR_contacts == idx.item()))
+            #Find environments which have FL/RR contacts
+            FL_RR_contacts = (torch.sum(FL_RR_masked, dim=1) == 2).nonzero()
+            non_FL_RR_contacts = (torch.sum(FR_RL_masked, dim=1) > 0).nonzero().tolist()
 
-            for idx in FR_contact_env_ids:
-                FL_RR_contacts = np.delete(FL_RR_contacts, np.where(FL_RR_contacts == idx.item()))
+            for item in non_FL_RR_contacts:
+                FL_RR_contacts = FL_RR_contacts[FL_RR_contacts != item[0]]
 
-            #Symbol 'A' is true when FL/RR feet are in air with enough clearance
-            for _id in FL_RR_contacts:
-                #if(foot_clearances[_id, 1] and foot_clearances[_id, 2]):
-                    #print("A is true!!")
-                prop_symbols[_id] = 'A'
+            prop_symbols[FL_RR_contacts] = 1
 
+            #Find environments which have FR/RL contacts
+            FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
+            non_FR_RL_contacts = (torch.sum(FL_RR_masked, dim=1) > 0).nonzero().tolist()
 
-            #Find which env_ids have only FR and RL feet touching ground
-            FR_RL_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), RL_contact_env_ids.cpu().numpy())
+            for item in non_FR_RL_contacts:
+                FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
 
-            #Remove ids that have FL or RR contact
-            for idx in FL_contact_env_ids:
-                FR_RL_contacts = np.delete(FR_RL_contacts, np.where(FR_RL_contacts == idx.item()))
-
-            for idx in RR_contact_env_ids:
-                FR_RL_contacts = np.delete(FR_RL_contacts, np.where(FR_RL_contacts == idx.item()))
-
-            #Symbol 'B' is true when FR/RL feet are in air with enough clearance
-            for _id in FR_RL_contacts:
-                #if(foot_clearances[_id, 0] and foot_clearances[_id, 3]):
-                    #print("B is true!!")
-                prop_symbols[_id] = 'B'
-
-        elif(self.gait == 'bounce'):
-
-            #Find which env_ids have all feet touching ground
-            #all_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), FR_contact_env_ids.cpu().numpy())
-            #all_contacts = np.intersect1d(all_contacts, RL_contact_env_ids.cpu().numpy())
-            #all_contacts = np.intersect1d(all_contacts, RR_contact_env_ids.cpu().numpy())
-            all_contacts = reduce(np.intersect1d, (FL_contact_env_ids.cpu().numpy(),
-                                                   FR_contact_env_ids.cpu().numpy(),
-                                                   RL_contact_env_ids.cpu().numpy(),
-                                                   RR_contact_env_ids.cpu().numpy()))
-
-            #Symbol 'A' is true when all feet are on the ground
-            for _id in all_contacts:
-                prop_symbols[_id] = 'A'
-
-
-            #Find which env_ids have no feet touching ground
-            any_contacts = reduce(np.union1d, (FL_contact_env_ids.cpu().numpy(),
-                                                   FR_contact_env_ids.cpu().numpy(),
-                                                   RL_contact_env_ids.cpu().numpy(),
-                                                   RR_contact_env_ids.cpu().numpy()))
-
-            #Take compliment of any_contacts to find env_ids with no contacts
-            all_envs = np.arange(self.num_envs)
-            mask = np.zeros(self.num_envs, dtype=bool)
-            mask[any_contacts] = True
-            no_contacts = all_envs[~mask]
-
-
-            #Symbol 'B' is true when all feet are in air with enough clearance
-            for _id in no_contacts:
-                #if(foot_clearances[_id, 0] and foot_clearances[_id, 3]):
-                    #print("B is true!!")
-                prop_symbols[_id] = 'B'
-
-
-        elif(self.gait == 'walk'):
-
-            #Find env ids with FL, RR, RL feet touching ground
-            FL_RR_RL_contacts = np.intersect1d(FL_contact_env_ids.cpu().numpy(), RR_contact_env_ids.cpu().numpy())
-            FL_RR_RL_contacts = np.intersect1d(FL_RR_RL_contacts, RL_contact_env_ids.cpu().numpy())
-
-            #Remove ids that have FR contact
-            for idx in FR_contact_env_ids:
-                FL_RR_RL_contacts = np.delete(FL_RR_RL_contacts, np.where(FL_RR_RL_contacts == idx.item()))
-
-            #Symbol 'A' is true when FR foot is in air with enough clearance
-            for _id in FL_RR_RL_contacts:
-                #if(foot_clearances[_id, 0]):
-                prop_symbols[_id] = 'A'
-
-            #Find env ids with FR, FL, RR, feet touching ground
-            FR_FL_RR_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), FL_contact_env_ids.cpu().numpy())
-            FR_FL_RR_contacts = np.intersect1d(FR_FL_RR_contacts, RR_contact_env_ids.cpu().numpy())
-
-            #Remove ids that have RL contact
-            for idx in RL_contact_env_ids:
-                FR_FL_RR_contacts = np.delete(FR_FL_RR_contacts, np.where(FR_FL_RR_contacts == idx.item()))
-
-            #Symbol 'B' is true when RL foot is in air with enough clearance
-            for _id in FR_FL_RR_contacts:
-                #if(foot_clearances[_id, 3]):
-                prop_symbols[_id] = 'B'
-
-            #Find env ids with FR, RR, RL feet touching ground
-            FR_RL_RR_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), RL_contact_env_ids.cpu().numpy())
-            FR_RL_RR_contacts = np.intersect1d(FR_RL_RR_contacts, RR_contact_env_ids.cpu().numpy())
-
-            #Remove ids that have FL contact
-            for idx in FL_contact_env_ids:
-                FR_RL_RR_contacts = np.delete(FR_RL_RR_contacts, np.where(FR_RL_RR_contacts == idx.item()))
-
-            #Symbol 'C' is true when FL foot is in air with enough clearance
-            for _id in FR_RL_RR_contacts:
-                #if(foot_clearances[_id, 1]):
-                prop_symbols[_id] = 'C'
-
-            #Find env ids with FR, FL, RL feet touching ground
-            FR_FL_RL_contacts = np.intersect1d(FR_contact_env_ids.cpu().numpy(), FL_contact_env_ids.cpu().numpy())
-            FR_FL_RL_contacts = np.intersect1d(FR_FL_RL_contacts, RL_contact_env_ids.cpu().numpy())
-
-            #Remove ids that have RR contact
-            for idx in RR_contact_env_ids:
-                FR_FL_RL_contacts = np.delete(FR_FL_RL_contacts, np.where(FR_FL_RL_contacts == idx.item()))
-
-            #Symbol 'D' is true when RR foot is in air with enough clearance
-            for _id in FR_FL_RL_contacts:
-                #if(foot_clearances[_id, 2]):
-                prop_symbols[_id] = 'D'
-
+            prop_symbols[FR_RL_contacts] = 2
 
         return prop_symbols
+
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -301,31 +198,17 @@ class LeggedRobot(BaseRMTask):
         self.check_termination()
         self.compute_reward()
 
-        #Update extras dict with non_RM reward before rew_buf updated with RM rewards
-        #self.extras['non_RM_reward'] = self.rew_buf
-
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
 
-
         #Update RM states
-        #if(self.experiment_type == 'rm'):
         true_props = self.get_events()
-        for env_id, rm in enumerate(self.reward_machines):
+        info = {'computed_reward': self.rew_buf}
+        new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info)
 
-            #info should contain info needed for RM reward computation
-            info = {'computed_reward': self.rew_buf[env_id]}
-                    #'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id],
-                    #'torques_penalty': self._reward_torques()[env_id]}
+        self.current_rm_states_buf = new_rm_states
+        self.rew_buf = rm_rew
 
-            #Take RM step. Returns new RM state, and RM reward
-            current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
-
-            #Update RM state
-            self.current_rm_states_buf[env_id] = current_rm_state
-
-            #Update reward
-            self.rew_buf[env_id] = rm_rew
 
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
@@ -390,8 +273,8 @@ class LeggedRobot(BaseRMTask):
 
         # reset RMs indexed by env_ids
         #if(self.experiment_type == 'rm'):
-        for _id in env_ids:
-            self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
+        #for _id in env_ids:
+        self.current_rm_states_buf[:] = 0
 
     
     def compute_reward(self):
