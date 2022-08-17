@@ -81,7 +81,7 @@ class LeggedRobot(BaseRMTask):
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
         self._init_buffers()
         self._prepare_reward_function()
-        self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
+        #self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
         self.init_done = True
 
     #Needed for RM implementation
@@ -302,30 +302,30 @@ class LeggedRobot(BaseRMTask):
         self.compute_reward()
 
         #Update extras dict with non_RM reward before rew_buf updated with RM rewards
-        self.extras['non_RM_reward'] = rew_buf
+        #self.extras['non_RM_reward'] = self.rew_buf
 
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
 
 
         #Update RM states
-        if(self.experiment_type == 'rm'):
-            true_props = self.get_events()
-            for env_id, rm in enumerate(self.reward_machines):
+        #if(self.experiment_type == 'rm'):
+        true_props = self.get_events()
+        for env_id, rm in enumerate(self.reward_machines):
 
-                #info should contain info needed for RM reward computation
-                info = {'computed_reward': self.rew_buf[env_id]}
-                        #'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id],
-                        #'torques_penalty': self._reward_torques()[env_id]}
+            #info should contain info needed for RM reward computation
+            info = {'computed_reward': self.rew_buf[env_id]}
+                    #'velocity_tracking_reward': self._reward_tracking_lin_vel()[env_id],
+                    #'torques_penalty': self._reward_torques()[env_id]}
 
-                #Take RM step. Returns new RM state, and RM reward
-                current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
+            #Take RM step. Returns new RM state, and RM reward
+            current_rm_state, rm_rew, rm_done = rm.step(self.current_rm_states_buf[env_id].item(), true_props[env_id], info)
 
-                #Update RM state
-                self.current_rm_states_buf[env_id] = current_rm_state
+            #Update RM state
+            self.current_rm_states_buf[env_id] = current_rm_state
 
-                #Update reward
-                self.rew_buf[env_id] = rm_rew
+            #Update reward
+            self.rew_buf[env_id] = rm_rew
 
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
 
@@ -389,9 +389,9 @@ class LeggedRobot(BaseRMTask):
             self.extras["time_outs"] = self.time_out_buf
 
         # reset RMs indexed by env_ids
-        if(self.experiment_type == 'rm'):
-            for _id in env_ids:
-                self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
+        #if(self.experiment_type == 'rm'):
+        for _id in env_ids:
+            self.current_rm_states_buf[_id] = self.reward_machines[_id].reset()
 
     
     def compute_reward(self):
@@ -418,13 +418,15 @@ class LeggedRobot(BaseRMTask):
         """ Computes observations
         """
 
+        #For RM approach, include RM state in observations
+        #For non-RM approach, we only maintain RMs to compute rewards. Thus, don't include RM in observations.
         if(self.experiment_type == 'rm'):
 
             rm_state_encoding = F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states)
             self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                                 #self.base_ang_vel  * self.obs_scales.ang_vel,
                                 #self.projected_gravity,
-                                self.commands[:, :3] * self.commands_scale,
+                                #self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions,
@@ -436,7 +438,7 @@ class LeggedRobot(BaseRMTask):
             self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                                 #self.base_ang_vel  * self.obs_scales.ang_vel,
                                 #self.projected_gravity,
-                                self.commands[:, :3] * self.commands_scale,
+                                #self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions
@@ -449,6 +451,21 @@ class LeggedRobot(BaseRMTask):
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
+
+    """def UpdateNonMarkovBonus(self):
+
+        true_props = self.get_events()
+        self.nonMarkovBonus[:] = False
+
+        #if(len(self.achieved_poses) == 2):
+        #    self.achieved_poses = []
+
+        if(len(self.achieved_poses) == 0 and propositions == 'P1'):
+            self.achieved_poses.append('P1')
+            self.nonMarkovBonus = True
+        elif(len(self.achieved_poses) == 1 and propositions == 'P2'):
+            self.nonMarkovBonus = True
+            self.achieved_poses = []"""
 
     def create_sim(self):
         """ Creates simulation, terrain and evironments
@@ -595,8 +612,8 @@ class LeggedRobot(BaseRMTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
-        #actions_scaled = actions * self.cfg.control.action_scale
-        actions_scaled = actions * self.action_scale
+        actions_scaled = actions * self.cfg.control.action_scale
+        #actions_scaled = actions * self.action_scale
 
         #out, inds = torch.max(actions_scaled,dim=0)
         #print(out)
@@ -1139,7 +1156,7 @@ class LeggedRobot(BaseRMTask):
         # penalize torques too close to the limit
         return torch.sum((torch.abs(self.torques) - self.torque_limits*self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)"""
 
-    def _reward_collision(self):
+    """def _reward_collision(self):
         # Penalize collisions on selected bodies
         return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
 
@@ -1150,7 +1167,11 @@ class LeggedRobot(BaseRMTask):
     def _reward_tracking_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
         lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
+        return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)"""
+
+    def _reward_base_forward(self):
+        #Reward for moving forward
+        return self.base_lin_vel[:,0]
     
 
     def _reward_base_height(self):

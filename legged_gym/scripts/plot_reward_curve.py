@@ -30,29 +30,33 @@ env_cfg.noise.add_noise = False
 env_cfg.domain_rand.randomize_friction = False
 env_cfg.domain_rand.push_robots = False
 
-# prepare environment
-env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-obs = env.get_observations()
 
-methods = ['RM', 'baseline']
+#methods = ['rm', 'naive']
+methods = ['rm']
 
 rewards = []
 
-num_saved_policies = 500
+num_saved_policies = 150
 num_iters = int(num_saved_policies/10)
 iter_amount = 100
 
 for method in methods:
 
+    train_cfg.runner.load_run = method
+    args.experiment = method
+    
+    # prepare environment
+    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
+    obs = env.get_observations()
+
     method_rewards = []
 
     #Deploy every policy (saved every 5 iterations)
-    for policy_iter in range(0, num_iters*iter_amount, iter_amount):
+    for policy_iter in range(100, num_iters*iter_amount, iter_amount):
 
         # load policy
         train_cfg.runner.resume = True
         train_cfg.runner.checkpoint = policy_iter
-        #train_cfg.runner.load_run = ''
         ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
         policy = ppo_runner.get_inference_policy(device=env.device)
 
@@ -63,20 +67,25 @@ for method in methods:
             actions = policy(obs.detach())
             obs, _, rews, dones, infos = env.step(actions.detach())
 
-            reward += torch.sum(infos['non_RM_reward']).item()
-            #reward += torch.sum(rews).item()
+            #reward += torch.sum(infos['non_RM_reward']).item()
+            reward += torch.sum(rews).item()
 
         #Add avg reward a single policy achieved
+        print(reward)
         method_rewards.append(reward/env_cfg.env.num_envs)
 
     rewards.append(method_rewards)
+
+    del env
 
 
 fig, ax = plt.subplots()
 time = [i*iter_amount for i in range(num_iters)]
 
 for i,method in enumerate(methods):
-    ax.plot(time, rewards[i])
+    ax.plot(time, rewards[i], label=method)
+
+ax.legend()
 
 plt.xlabel('Training Iterations')
 plt.ylabel('Reward')
