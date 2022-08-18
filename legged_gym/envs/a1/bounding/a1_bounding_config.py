@@ -22,20 +22,11 @@ class A1BoundingCfg( LeggedRobotCfg ):
 
     class env( LeggedRobotCfg.env ):
         num_envs = 2000
-        num_observations = 36
+        num_observations = 39
 
-    #Walking 0.375, Trotting 0.9, Bouncing 1.5
-    class commands:
-        curriculum = False
-        max_curriculum = 1.
-        num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
-        resampling_time = 10. # time before command are changed[s]
-        heading_command = True # if true: compute ang vel command from heading error
-        class ranges:
-            lin_vel_x = [0.9, 0.9] # min max [m/s]
-            lin_vel_y = [0, 0]   # min max [m/s]
-            ang_vel_yaw = [0, 0]    # min max [rad/s]
-            heading = [0, 0]
+    class terrain( LeggedRobotCfg.terrain ):
+        mesh_type = 'plane'
+        measure_heights = False
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -53,17 +44,16 @@ class A1BoundingCfg( LeggedRobotCfg ):
         foot_name = "foot"
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base"]
+        #terminate_after_contacts_on = ["base", "thigh", "calf"]
         self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.27
-        #class scales( LeggedRobotCfg.rewards.scales ):
-            #torques = -0.0002
-            #dof_pos_limits = -10.0
-            #base_height = -10.0
-            #tracking_lin_vel = 1.0 #1.0
-            #feet_air_time =  100.0
+        class scales( LeggedRobotCfg.rewards.scales ):
+            torques = -0.0002
+            dof_pos_limits = -10.0
+            base_height = -10.0
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -72,8 +62,8 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1500 # number of policy updates
-        load_run = 'v5' # folder directly containing model files
-        checkpoint = 1500 # saved model iter
+        load_run = 'v2' # folder directly containing model files
+        checkpoint = 400 # saved model iter
 
 
   

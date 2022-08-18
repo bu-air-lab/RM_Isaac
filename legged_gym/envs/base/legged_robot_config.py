@@ -54,11 +54,13 @@ class LeggedRobotCfg(BaseConfig):
         measured_points_x = [-0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] # 1mx1.6m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
 
-        selected = True # select a unique terrain type and pass all arguments
-        terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
-        max_init_terrain_level = 1 # starting curriculum state
-        terrain_length = 3.#8
-        terrain_width = 3.#8
+        #selected = True # select a unique terrain type and pass all arguments
+        #terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
+        selected = False
+        terrain_kwargs = None
+        max_init_terrain_level = 5 # starting curriculum state
+        terrain_length = 8.#8
+        terrain_width = 8.#8
         num_rows= 10 # number of terrain rows (levels)
         num_cols = 20 # number of terrain cols (types)
         # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
@@ -130,32 +132,29 @@ class LeggedRobotCfg(BaseConfig):
 
     class rewards:
         class scales:
-            #termination = -0.0
-            #tracking_lin_vel = 10.0
-            base_forward = 10.0
-            energy = 0.01 #0.04
-            #alive = 20.0
-            #tracking_ang_vel = 0.5
-            #lin_vel_z = -2.0
-            #ang_vel_xy = -0.05
-            #orientation = -10.0
-            #torques = -0.00001
-            #dof_vel = -0.
-            #dof_acc = -2.5e-7
-            base_height = -100.0 
-            #feet_air_time =  10.0
-            #collision = -10.0
-            #feet_stumble = -0.0 
-            #action_rate = -0.01
-            #stand_still = -0.
+            termination = -0.0
+            tracking_lin_vel = 1.0
+            tracking_ang_vel = 0.5
+            lin_vel_z = -2.0
+            ang_vel_xy = -0.05
+            orientation = -0.
+            torques = -0.00001
+            dof_vel = -0.
+            dof_acc = -2.5e-7
+            base_height = -0. 
+            feet_air_time =  1.0
+            collision = -1.
+            feet_stumble = -0.0 
+            action_rate = -0.01
+            stand_still = -0.
 
-        #only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
-        #tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
-        #soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
-        #soft_dof_vel_limit = 1.
-        #soft_torque_limit = 1.
-        #base_height_target = 1.
-        #max_contact_force = 100. # forces above this value are penalized
+        only_positive_rewards = True # if true negative total rewards are clipped at zero (avoids early termination problems)
+        tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
+        soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
+        soft_dof_vel_limit = 1.
+        soft_torque_limit = 1.
+        base_height_target = 1.
+        max_contact_force = 100. # forces above this value are penalized
 
     class normalization:
         class obs_scales:

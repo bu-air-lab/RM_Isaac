@@ -34,7 +34,6 @@ from warnings import WarningMessage
 import numpy as np
 import os
 import random
-from functools import reduce
 
 from isaacgym.torch_utils import *
 from isaacgym import gymtorch, gymapi, gymutil
@@ -93,6 +92,22 @@ class LeggedRobot(BaseRMTask):
         self.FR_RL_mask[:,1] = 1
         self.FR_RL_mask[:,2] = 1
 
+        self.FL_RL_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_RL_mask[:,0] = 1
+        self.FL_RL_mask[:,2] = 1
+
+        self.FR_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FR_RR_mask[:,1] = 1
+        self.FR_RR_mask[:,3] = 1
+
+        self.FL_FR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_FR_mask[:,0] = 1
+        self.FL_FR_mask[:,1] = 1
+
+        self.RL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.RL_RR_mask[:,2] = 1
+        self.RL_RR_mask[:,3] = 1
+
         self.init_done = True
 
     #Needed for RM implementation
@@ -132,6 +147,54 @@ class LeggedRobot(BaseRMTask):
                 FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
 
             prop_symbols[FR_RL_contacts] = 2
+
+        elif(self.gait == 'pace'):
+
+            #Filter out environments based on which have exclusively FL/RL feet contacts or exclusively FR/RR contacts
+            FL_RL_masked = foot_contacts*self.FL_RL_mask
+            FR_RR_masked = foot_contacts*self.FR_RR_mask
+
+            #Find environments which have FL/RL contacts
+            FL_RL_contacts = (torch.sum(FL_RL_masked, dim=1) == 2).nonzero()
+            non_FL_RL_contacts = (torch.sum(FR_RR_masked, dim=1) > 0).nonzero().tolist()
+
+            for item in non_FL_RL_contacts:
+                FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
+
+            prop_symbols[FL_RL_contacts] = 1
+
+            #Find environments which have FR/RR contacts
+            FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
+            non_FR_RR_contacts = (torch.sum(FL_RL_masked, dim=1) > 0).nonzero().tolist()
+
+            for item in non_FR_RR_contacts:
+                FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
+
+            prop_symbols[FR_RR_contacts] = 2
+
+        elif(self.gait == 'bound'):
+
+            #Filter out environments based on which have exclusively FL/RL feet contacts or exclusively FR/RR contacts
+            FL_FR_masked = foot_contacts*self.FL_FR_mask
+            RL_RR_masked = foot_contacts*self.RL_RR_mask
+
+            #Find environments which have FL/RL contacts
+            FL_FR_contacts = (torch.sum(FL_FR_masked, dim=1) == 2).nonzero()
+            non_FL_FR_contacts = (torch.sum(RL_RR_masked, dim=1) > 0).nonzero().tolist()
+
+            for item in non_FL_FR_contacts:
+                FL_FR_contacts = FL_FR_contacts[FL_FR_contacts != item[0]]
+
+            prop_symbols[FL_FR_contacts] = 1
+
+            #Find environments which have FR/RR contacts
+            RL_RR_contacts = (torch.sum(RL_RR_masked, dim=1) == 2).nonzero()
+            non_RL_RR_contacts = (torch.sum(FL_FR_masked, dim=1) > 0).nonzero().tolist()
+
+            for item in non_RL_RR_contacts:
+                RL_RR_contacts = RL_RR_contacts[RL_RR_contacts != item[0]]
+
+            prop_symbols[RL_RR_contacts] = 2
 
         return prop_symbols
 
@@ -289,8 +352,8 @@ class LeggedRobot(BaseRMTask):
             self.rew_buf += rew
             self.episode_sums[name] += rew
 
-        #if self.cfg.rewards.only_positive_rewards:
-        #    self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
+        if self.cfg.rewards.only_positive_rewards:
+            self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
         # add termination reward after clipping
         if "termination" in self.reward_scales:
             rew = self._reward_termination() * self.reward_scales["termination"]
@@ -309,7 +372,7 @@ class LeggedRobot(BaseRMTask):
             self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                                 #self.base_ang_vel  * self.obs_scales.ang_vel,
                                 #self.projected_gravity,
-                                #self.commands[:, :3] * self.commands_scale,
+                                self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions,
@@ -321,7 +384,7 @@ class LeggedRobot(BaseRMTask):
             self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
                                 #self.base_ang_vel  * self.obs_scales.ang_vel,
                                 #self.projected_gravity,
-                                #self.commands[:, :3] * self.commands_scale,
+                                self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions
@@ -982,7 +1045,7 @@ class LeggedRobot(BaseRMTask):
         return heights.view(self.num_envs, -1) * self.terrain.cfg.vertical_scale
 
     #------------ reward functions----------------
-    """def _reward_lin_vel_z(self):
+    def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
         return torch.square(self.base_lin_vel[:, 2])
     
@@ -1037,66 +1100,14 @@ class LeggedRobot(BaseRMTask):
 
     def _reward_torque_limits(self):
         # penalize torques too close to the limit
-        return torch.sum((torch.abs(self.torques) - self.torque_limits*self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)"""
+        return torch.sum((torch.abs(self.torques) - self.torque_limits*self.cfg.rewards.soft_torque_limit).clip(min=0.), dim=1)
 
-    """def _reward_collision(self):
-        # Penalize collisions on selected bodies
-        return torch.sum(1.*(torch.norm(self.contact_forces[:, self.penalised_contact_indices, :], dim=-1) > 0.1), dim=1)
-
-    def _reward_orientation(self):
-        # Penalize non flat base orientation
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
 
     def _reward_tracking_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
         lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
-        return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)"""
+        return torch.exp(-lin_vel_error/self.cfg.rewards.tracking_sigma)
 
-    def _reward_base_forward(self):
-        #Reward for moving forward
-        return self.base_lin_vel[:,0]
-    
-
-    def _reward_base_height(self):
-        # Penalize base height away from target
-        base_height = torch.mean(self.root_states[:, 2].unsqueeze(1) - self.measured_heights, dim=1)
-        return torch.square(base_height - self.cfg.rewards.base_height_target)
-
-    """def _reward_tracking_lin_vel(self):
-
-        x_vel_error = -30 * torch.abs(self.commands[:, 0] - self.base_lin_vel[:, 0])
-        y_vel_error = -torch.square(self.base_lin_vel[:, 1])
-        ang_vel_yaw_error = -torch.square(self.base_ang_vel[:, 2])
-
-        return (x_vel_error + y_vel_error + ang_vel_yaw_error)"""
-
-    #Multiply joint torques by joint velocities per env
-    def _reward_energy(self):
-
-        return -torch.sum(torch.abs(self.torques) * torch.abs(self.dof_vel), dim=1)
-
-    """def _reward_feet_air_time(self):
-        # Reward long steps
-        # Need to filter the contacts because the contact reporting of PhysX is unreliable on meshes
-        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-        contact_filt = torch.logical_or(contact, self.last_contacts) 
-        self.last_contacts = contact
-        first_contact = (self.feet_air_time > 0.) * contact_filt
-        self.feet_air_time += self.dt
-        rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
-        rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
-        self.feet_air_time *= ~contact_filt
-        return rew_airTime"""
-
-    #Bonus for surviving, based on commanded speed
-    """def _reward_alive(self):
-
-        return self.commands[:, 0]"""
-
-    """def _reward_tracking_ang_vel(self):
-        # Tracking of angular velocity commands (yaw) 
-        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
-        return torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma)
 
     def _reward_feet_air_time(self):
         # Reward long steps
@@ -1110,6 +1121,14 @@ class LeggedRobot(BaseRMTask):
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
+
+
+    def _reward_tracking_ang_vel(self):
+        # Tracking of angular velocity commands (yaw) 
+        ang_vel_error = torch.square(self.commands[:, 2] - self.base_ang_vel[:, 2])
+        return torch.exp(-ang_vel_error/self.cfg.rewards.tracking_sigma)
+
+
     
     def _reward_stumble(self):
         # Penalize feet hitting vertical surfaces
@@ -1122,4 +1141,24 @@ class LeggedRobot(BaseRMTask):
 
     def _reward_feet_contact_forces(self):
         # penalize high contact forces
-        return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)"""
+        return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
+
+    
+    """
+    def _reward_base_forward(self):
+        #Reward for moving forward
+        return self.base_lin_vel[:,0]
+
+    def _reward_dof_pos_limits(self):
+        # Penalize dof positions too close to the limit
+        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
+        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.)
+        return torch.sum(out_of_limits, dim=1)
+    
+
+    #Multiply joint torques by joint velocities per env
+    def _reward_energy(self):
+
+        return -torch.sum(torch.abs(self.torques) * torch.abs(self.dof_vel), dim=1)
+
+    """
