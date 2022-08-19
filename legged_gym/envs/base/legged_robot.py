@@ -53,7 +53,7 @@ from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
 class LeggedRobot(BaseRMTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, rm_file, gait, experiment_type):
+    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, gait, experiment_type):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -70,17 +70,19 @@ class LeggedRobot(BaseRMTask):
         self.sim_params = sim_params
         self.gait=gait
         self.experiment_type = experiment_type
+        if(self.experiment_type not in ['rm', 'naive', 'naive3T', 'augmented', 'noGait']):
+            print("Experiment type doesn't exist")
+            exit()
         self.height_samples = None
         self.debug_viz = False
         self.init_done = False
         self._parse_cfg(self.cfg)
-        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, rm_file, self.experiment_type)
+        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, self.experiment_type)
 
         if not self.headless:
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
         self._init_buffers()
         self._prepare_reward_function()
-        #self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
 
         #Initialize masks needed for evaluation of propositional symbols truth values
         #Foot order: FL, FR, RL, RR
@@ -108,6 +110,21 @@ class LeggedRobot(BaseRMTask):
         self.RL_RR_mask[:,2] = 1
         self.RL_RR_mask[:,3] = 1
 
+        #Store the past 2 actions, dof_pos, and dof_vel
+        #Used for observation space in naive3T experiments
+        self.past_actions = []
+        self.past_dof_pos = []
+        self.past_dof_vel = []
+
+        #Initialize past observations
+        if(self.experiment_type == 'naive3T'):
+
+            for i in range(2):
+                self.past_actions.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
+                self.past_dof_pos.append(self.default_dof_pos.repeat(self.num_envs))
+                self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
+
+
         self.init_done = True
 
     #Needed for RM implementation
@@ -122,7 +139,7 @@ class LeggedRobot(BaseRMTask):
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         foot_contacts = torch.logical_or(contact, self.last_contacts) 
-        self.last_contacts = contact
+        #self.last_contacts = contact
 
         if(self.gait == 'trot'):
 
@@ -219,11 +236,6 @@ class LeggedRobot(BaseRMTask):
                 self.gym.fetch_results(self.sim, True)
             self.gym.refresh_dof_state_tensor(self.sim)
 
-
-        #self.compute_reward()
-        #self.experiment_type
-            
-
         #Compute rewards, update observation buffer (including RM state), etc...
         self.post_physics_step()
 
@@ -264,13 +276,27 @@ class LeggedRobot(BaseRMTask):
         env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset_idx(env_ids)
 
-        #Update RM states
+        #Update RM states, return reward from RM
         true_props = self.get_events()
         info = {'computed_reward': self.rew_buf}
-        new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info)
+        new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info, self.experiment_type)
+
 
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
+
+        #Update observation buffers for naive3T
+        if(self.experiment_type == 'naive3T'):
+
+            self.past_actions.pop()
+            self.past_actions.insert(0, self.actions)
+
+            self.past_dof_pos.pop()
+            self.past_dof_pos.insert(0, self.dof_pos)
+
+            self.past_dof_vel.pop()
+            self.past_dof_vel.insert(0, self.dof_vel)
+
 
 
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
@@ -335,9 +361,7 @@ class LeggedRobot(BaseRMTask):
             self.extras["time_outs"] = self.time_out_buf
 
         # reset RMs indexed by env_ids
-        #if(self.experiment_type == 'rm'):
-        #for _id in env_ids:
-        self.current_rm_states_buf[:] = 0
+        self.current_rm_states_buf[env_ids] = 0
 
     
     def compute_reward(self):
@@ -379,6 +403,43 @@ class LeggedRobot(BaseRMTask):
                                 rm_state_encoding
                                 ),dim=-1)
 
+        elif(self.experiment_type == 'augmented'):
+
+            contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+            foot_contacts = torch.logical_or(contact, self.last_contacts) 
+            #self.last_contacts = contact
+
+            self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+                    #self.base_ang_vel  * self.obs_scales.ang_vel,
+                    #self.projected_gravity,
+                    self.commands[:, :3] * self.commands_scale,
+                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                    self.dof_vel * self.obs_scales.dof_vel,
+                    self.actions,
+                    foot_contacts
+                    ),dim=-1)
+
+        elif(self.experiment_type == 'naive3T'):
+
+            self.obs_buf = torch.cat((  
+
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.past_dof_pos[0] - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.past_dof_vel[0] * self.obs_scales.dof_vel,
+                                self.past_actions[0],
+
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.past_dof_pos[1] - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.past_dof_vel[1] * self.obs_scales.dof_vel,
+                                self.past_actions[1],
+
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions
+                                ),dim=-1)
+
+        #State space is same for naive and noGait
         else:
 
             self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
@@ -398,20 +459,6 @@ class LeggedRobot(BaseRMTask):
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
 
-    """def UpdateNonMarkovBonus(self):
-
-        true_props = self.get_events()
-        self.nonMarkovBonus[:] = False
-
-        #if(len(self.achieved_poses) == 2):
-        #    self.achieved_poses = []
-
-        if(len(self.achieved_poses) == 0 and propositions == 'P1'):
-            self.achieved_poses.append('P1')
-            self.nonMarkovBonus = True
-        elif(len(self.achieved_poses) == 1 and propositions == 'P2'):
-            self.nonMarkovBonus = True
-            self.achieved_poses = []"""
 
     def create_sim(self):
         """ Creates simulation, terrain and evironments
@@ -531,12 +578,12 @@ class LeggedRobot(BaseRMTask):
         """
 
         #Consider lin_vel_x command as a random choice between lower and upper bound only
-        lin_vel_x_command = torch.randint(0,2,(len(env_ids), 1), device=self.device).float()
-        lin_vel_x_command[lin_vel_x_command == 0] = self.command_ranges["lin_vel_x"][0]
-        lin_vel_x_command[lin_vel_x_command == 1] = self.command_ranges["lin_vel_x"][1]
-        self.commands[env_ids, 0] = lin_vel_x_command.squeeze(1)
+        #lin_vel_x_command = torch.randint(0,2,(len(env_ids), 1), device=self.device).float()
+        #lin_vel_x_command[lin_vel_x_command == 0] = self.command_ranges["lin_vel_x"][0]
+        #lin_vel_x_command[lin_vel_x_command == 1] = self.command_ranges["lin_vel_x"][1]
+        #self.commands[env_ids, 0] = lin_vel_x_command.squeeze(1)
 
-        #self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         if self.cfg.commands.heading_command:
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
@@ -559,12 +606,6 @@ class LeggedRobot(BaseRMTask):
         """
         #pd controller
         actions_scaled = actions * self.cfg.control.action_scale
-        #actions_scaled = actions * self.action_scale
-
-        #out, inds = torch.max(actions_scaled,dim=0)
-        #print(out)
-        #zz
-
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
@@ -688,13 +729,6 @@ class LeggedRobot(BaseRMTask):
         if self.cfg.terrain.measure_heights:
             noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
-
-        """
-                            (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-                            self.dof_vel * self.obs_scales.dof_vel,
-                            self.actions,
-                            F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states) #Add one-hot RM states
-        """
 
     #----------------------------------------
     def _init_buffers(self):

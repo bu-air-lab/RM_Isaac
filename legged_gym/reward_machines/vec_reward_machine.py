@@ -28,18 +28,18 @@ class VecRewardMachine:
 
         return next_states
 
-    def get_reward(self, current_states, next_states, s_info):
+    def get_reward(self, current_states, next_states, s_info, experiment_type):
 
         #Populate rm_rews with all self-loop rewards
         self.rm_rews = s_info['computed_reward']
 
         #Find environments that had an RM transition, and replace rm_rews with bonus reward
-        bonus_envs = (current_states - next_states).nonzero()
-        self.rm_rews[bonus_envs] *= self.bonus
+        if(experiment_type != 'noGait'):
+            bonus_envs = (current_states - next_states).nonzero()
+            self.rm_rews[bonus_envs] *= self.bonus
 
-        return self.rm_rews
 
-    def step(self, current_states, true_props, s_info):
+    def step(self, current_states, true_props, s_info, experiment_type):
         """
         Emulates a step on the reward machines from current_states when observing *true_props*.
         """
@@ -47,9 +47,9 @@ class VecRewardMachine:
         # Computing the next RM state per env
         next_states = self.get_next_states(current_states, true_props)
 
-        #Getting the reward
-        rew = self.get_reward(current_states, next_states, s_info)
+        #Update the reward
+        self.get_reward(current_states, next_states, s_info, experiment_type)
 
-        return next_states, rew
+        return next_states, self.rm_rews
 
 

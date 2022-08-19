@@ -52,7 +52,7 @@ for method in methods:
     method_rewards = []
 
     #Deploy every policy (saved every 5 iterations)
-    for policy_iter in range(100, num_iters*iter_amount, iter_amount):
+    for policy_iter in range(0, num_iters*iter_amount, iter_amount):
 
         # load policy
         train_cfg.runner.resume = True

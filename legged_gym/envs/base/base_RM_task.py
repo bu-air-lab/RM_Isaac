@@ -41,7 +41,7 @@ from legged_gym.reward_machines.vec_reward_machine import VecRewardMachine
 # Base class for RL tasks
 class BaseRMTask():
 
-    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, rm_file, experiment_type):
+    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, experiment_type):
 
         self.gym = gymapi.acquire_gym()
 
