@@ -21,7 +21,6 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_envs = 2000
         num_observations = 39
 
     class terrain( LeggedRobotCfg.terrain ):
@@ -36,7 +35,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 4
+        decimation = 6
 
     class asset( LeggedRobotCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/a1/urdf/a1.urdf'
@@ -51,8 +50,8 @@ class A1BoundingCfg( LeggedRobotCfg ):
         soft_dof_pos_limit = 0.9
         base_height_target = 0.27
         class scales( LeggedRobotCfg.rewards.scales ):
-            #tracking_lin_vel = 2.0
             torques = -0.0002
+            #torques = -0.0005
             dof_pos_limits = -10.0
             base_height = -10.0
 
@@ -62,9 +61,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 1500 # number of policy updates
-        load_run = 'v7' # folder directly containing model files
-        checkpoint = 1500 # saved model iter
+        max_iterations = 1000 # number of policy updates
+        load_run = 'v8' # folder directly containing model files
+        checkpoint = 1000 # saved model iter
 
 
   

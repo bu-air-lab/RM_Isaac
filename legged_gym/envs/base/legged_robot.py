@@ -124,7 +124,7 @@ class LeggedRobot(BaseRMTask):
                 self.past_dof_pos.append(self.default_dof_pos.repeat(self.num_envs))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
-
+        self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
         self.init_done = True
 
     #Needed for RM implementation
@@ -139,7 +139,11 @@ class LeggedRobot(BaseRMTask):
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         foot_contacts = torch.logical_or(contact, self.last_contacts) 
-        #self.last_contacts = contact
+        
+        #Determine if each foot is sufficiently high enough to be considered "in air"
+        feet_z_positions = self.link_positions[:, self.feet_indices, 2]
+        clearance_threshold = 0.05 #ground is 0.02
+        foot_clearances = feet_z_positions > clearance_threshold
 
         if(self.gait == 'trot'):
 
@@ -154,7 +158,29 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RR_contacts:
                 FL_RR_contacts = FL_RR_contacts[FL_RR_contacts != item[0]]
 
-            prop_symbols[FL_RR_contacts] = 1
+
+            #Find environments which have sufficient foot clearances for feet in air
+            RM_transition_envs = []
+            #print(FL_RR_contacts)
+            #print(FL_RR_contacts.shape)
+            #print(FL_RR_contacts.squeeze(1))
+            #print(len(FL_RR_contacts.shape))
+
+            if(len(FL_RR_contacts.shape) == 2 and FL_RR_contacts.shape[0] > 0):
+                FL_RR_contacts = FL_RR_contacts.squeeze(1)
+
+            for item in FL_RR_contacts.tolist():
+
+                #print(FL_RR_contacts.shape)
+
+                #item = item[0]
+
+                #print(FL_RR_contacts)
+                #print(FL_RR_contacts.tolist())
+                if(foot_clearances[item][1] and foot_clearances[item][2]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 1
 
             #Find environments which have FR/RL contacts
             FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
@@ -163,7 +189,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RL_contacts:
                 FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
 
-            prop_symbols[FR_RL_contacts] = 2
+            #Find environments which have sufficient foot clearances for feet in air
+            RM_transition_envs = []
+            for item in FR_RL_contacts.tolist():
+
+                #item = item[0]
+
+                if(foot_clearances[item][0] and foot_clearances[item][3]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 2
 
         elif(self.gait == 'pace'):
 
@@ -178,7 +213,13 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RL_contacts:
                 FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
 
-            prop_symbols[FL_RL_contacts] = 1
+            #Find environments which have sufficient foot clearances for feet in air
+            RM_transition_envs = []
+            for item in FL_RL_contacts.tolist():
+                if(foot_clearances[item][1] and foot_clearances[item][3]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 1
 
             #Find environments which have FR/RR contacts
             FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
@@ -187,7 +228,13 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RR_contacts:
                 FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
 
-            prop_symbols[FR_RR_contacts] = 2
+            #Find environments which have sufficient foot clearances for feet in air
+            RM_transition_envs = []
+            for item in FR_RR_contacts.tolist():
+                if(foot_clearances[item][0] and foot_clearances[item][2]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 2
 
         elif(self.gait == 'bound'):
 
@@ -202,7 +249,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_FR_contacts:
                 FL_FR_contacts = FL_FR_contacts[FL_FR_contacts != item[0]]
 
-            prop_symbols[FL_FR_contacts] = 1
+            if(len(FL_FR_contacts.shape) == 2 and FL_FR_contacts.shape[0] > 0):
+                FL_FR_contacts = FL_FR_contacts.squeeze(1)
+
+            #Find environments which have sufficient foot clearances for feet in air
+            RM_transition_envs = []
+            for item in FL_FR_contacts.tolist():
+                if(foot_clearances[item][2] and foot_clearances[item][3]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 1
 
             #Find environments which have FR/RR contacts
             RL_RR_contacts = (torch.sum(RL_RR_masked, dim=1) == 2).nonzero()
@@ -211,7 +267,12 @@ class LeggedRobot(BaseRMTask):
             for item in non_RL_RR_contacts:
                 RL_RR_contacts = RL_RR_contacts[RL_RR_contacts != item[0]]
 
-            prop_symbols[RL_RR_contacts] = 2
+            RM_transition_envs = []
+            for item in RL_RR_contacts.tolist():
+                if(foot_clearances[item][0] and foot_clearances[item][1]):
+                    RM_transition_envs.append(item)
+
+            prop_symbols[RM_transition_envs] = 2
 
         return prop_symbols
 
@@ -256,7 +317,8 @@ class LeggedRobot(BaseRMTask):
         self.gym.refresh_net_contact_force_tensor(self.sim)
 
         #Needed to get foot coordinates for RM transition eval
-        #self.gym.refresh_rigid_body_state_tensor(self.sim)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+
 
         self.episode_length_buf += 1
         self.common_step_counter += 1
@@ -605,7 +667,7 @@ class LeggedRobot(BaseRMTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
-        actions_scaled = actions * self.cfg.control.action_scale
+        actions_scaled = actions * self.action_scale #self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel

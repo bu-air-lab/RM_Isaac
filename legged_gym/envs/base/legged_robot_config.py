@@ -50,11 +50,16 @@ class LeggedRobotCfg(BaseConfig):
         dynamic_friction = 1.0
         restitution = 0.
         # rough terrain only:
-        measure_heights = True
+        #measure_heights = True
+        measure_heights = False
         measured_points_x = [-0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8] # 1mx1.6m rectangle (without center line)
         measured_points_y = [-0.5, -0.4, -0.3, -0.2, -0.1, 0., 0.1, 0.2, 0.3, 0.4, 0.5]
-        selected = False # select a unique terrain type and pass all arguments
-        terrain_kwargs = None # Dict of arguments for selected terrain
+
+        #selected = False # select a unique terrain type and pass all arguments
+        #terrain_kwargs = None # Dict of arguments for selected terrain
+        selected = True # select a unique terrain type and pass all arguments
+        terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
+
         max_init_terrain_level = 5 # starting curriculum state
         terrain_length = 8.
         terrain_width = 8.
