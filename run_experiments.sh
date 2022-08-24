@@ -1,0 +1,10 @@
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=rm --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=rm --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=rm --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=rm --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=naive3T --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=naive3T --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=naive3T --headless
+#python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=naive3T --headless
+python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=augmented --headless
+python3 legged_gym/scripts/train.py --task=a1_bounding --gait=pace --experiment=augmented --headless

@@ -121,7 +121,7 @@ class LeggedRobot(BaseRMTask):
 
             for i in range(2):
                 self.past_actions.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
-                self.past_dof_pos.append(self.default_dof_pos.repeat(self.num_envs))
+                self.past_dof_pos.append(self.default_dof_pos[0].repeat(self.num_envs, 1))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
         self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
@@ -160,27 +160,15 @@ class LeggedRobot(BaseRMTask):
 
 
             #Find environments which have sufficient foot clearances for feet in air
-            RM_transition_envs = []
-            #print(FL_RR_contacts)
-            #print(FL_RR_contacts.shape)
-            #print(FL_RR_contacts.squeeze(1))
-            #print(len(FL_RR_contacts.shape))
-
-            if(len(FL_RR_contacts.shape) == 2 and FL_RR_contacts.shape[0] > 0):
+            """ if(len(FL_RR_contacts.shape) == 2 and FL_RR_contacts.shape[0] > 0):
                 FL_RR_contacts = FL_RR_contacts.squeeze(1)
 
+            RM_transition_envs = []
             for item in FL_RR_contacts.tolist():
-
-                #print(FL_RR_contacts.shape)
-
-                #item = item[0]
-
-                #print(FL_RR_contacts)
-                #print(FL_RR_contacts.tolist())
                 if(foot_clearances[item][1] and foot_clearances[item][2]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 1
+            prop_symbols[FL_RR_contacts] = 1
 
             #Find environments which have FR/RL contacts
             FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
@@ -189,16 +177,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RL_contacts:
                 FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
 
+            """if(len(FR_RL_contacts.shape) == 2 and FR_RL_contacts.shape[0] > 0):
+                FR_RL_contacts = FR_RL_contacts.squeeze(1)
+
             #Find environments which have sufficient foot clearances for feet in air
             RM_transition_envs = []
             for item in FR_RL_contacts.tolist():
-
-                #item = item[0]
-
                 if(foot_clearances[item][0] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 2
+            prop_symbols[FR_RL_contacts] = 2
 
         elif(self.gait == 'pace'):
 
@@ -213,13 +201,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RL_contacts:
                 FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
 
+            """if(len(FL_RL_contacts.shape) == 2 and FL_RL_contacts.shape[0] > 0):
+                FL_RL_contacts = FL_RL_contacts.squeeze(1)
+
             #Find environments which have sufficient foot clearances for feet in air
             RM_transition_envs = []
             for item in FL_RL_contacts.tolist():
                 if(foot_clearances[item][1] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 1
+            prop_symbols[FL_RL_contacts] = 1
 
             #Find environments which have FR/RR contacts
             FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
@@ -228,13 +219,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RR_contacts:
                 FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
 
+            """if(len(FR_RR_contacts.shape) == 2 and FR_RR_contacts.shape[0] > 0):
+                FR_RR_contacts = FR_RR_contacts.squeeze(1)
+
             #Find environments which have sufficient foot clearances for feet in air
             RM_transition_envs = []
             for item in FR_RR_contacts.tolist():
                 if(foot_clearances[item][0] and foot_clearances[item][2]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 2
+            prop_symbols[FR_RR_contacts] = 2
 
         elif(self.gait == 'bound'):
 
@@ -249,16 +243,16 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_FR_contacts:
                 FL_FR_contacts = FL_FR_contacts[FL_FR_contacts != item[0]]
 
-            if(len(FL_FR_contacts.shape) == 2 and FL_FR_contacts.shape[0] > 0):
+            """if(len(FL_FR_contacts.shape) == 2 and FL_FR_contacts.shape[0] > 0):
                 FL_FR_contacts = FL_FR_contacts.squeeze(1)
 
             #Find environments which have sufficient foot clearances for feet in air
             RM_transition_envs = []
             for item in FL_FR_contacts.tolist():
                 if(foot_clearances[item][2] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 1
+            prop_symbols[FL_FR_contacts] = 1
 
             #Find environments which have FR/RR contacts
             RL_RR_contacts = (torch.sum(RL_RR_masked, dim=1) == 2).nonzero()
@@ -267,12 +261,15 @@ class LeggedRobot(BaseRMTask):
             for item in non_RL_RR_contacts:
                 RL_RR_contacts = RL_RR_contacts[RL_RR_contacts != item[0]]
 
+            """if(len(RL_RR_contacts.shape) == 2 and RL_RR_contacts.shape[0] > 0):
+                RL_RR_contacts = RL_RR_contacts.squeeze(1)
+
             RM_transition_envs = []
             for item in RL_RR_contacts.tolist():
                 if(foot_clearances[item][0] and foot_clearances[item][1]):
-                    RM_transition_envs.append(item)
+                    RM_transition_envs.append(item)"""
 
-            prop_symbols[RM_transition_envs] = 2
+            prop_symbols[RL_RR_contacts] = 2
 
         return prop_symbols
 

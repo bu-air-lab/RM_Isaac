@@ -31,13 +31,11 @@ env_cfg.domain_rand.randomize_friction = False
 env_cfg.domain_rand.push_robots = False
 
 
-#methods = ['rm', 'naive']
-methods = ['rm']
+#methods = ['rm', 'naive', 'augmented', 'naive3T']
+methods = ['naive3T']
 
 rewards = []
 
-num_saved_policies = 150
-num_iters = int(num_saved_policies/10)
 iter_amount = 100
 
 for method in methods:
@@ -52,7 +50,7 @@ for method in methods:
     method_rewards = []
 
     #Deploy every policy (saved every 5 iterations)
-    for policy_iter in range(0, num_iters*iter_amount, iter_amount):
+    for policy_iter in range(0, 1001, iter_amount):
 
         # load policy
         train_cfg.runner.resume = True
@@ -80,7 +78,7 @@ for method in methods:
 
 
 fig, ax = plt.subplots()
-time = [i*iter_amount for i in range(num_iters)]
+time = [i for i in range(0, 1001, iter_amount)]
 
 for i,method in enumerate(methods):
     ax.plot(time, rewards[i], label=method)

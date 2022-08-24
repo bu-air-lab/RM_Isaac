@@ -84,6 +84,10 @@ class BaseRMTask():
 
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states
+        elif(experiment_type == 'augmented'):
+            self.num_obs += 4 #add foot contacts to state space
+        elif(experiment_type == 'naive3T'):
+            self.num_obs *= 3 #State space include past 2 timesteps as well
 
 
         # allocate buffers
