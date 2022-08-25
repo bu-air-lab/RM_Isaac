@@ -32,7 +32,7 @@ from .base_config import BaseConfig
 
 class LeggedRobotCfg(BaseConfig):
     class env:
-        num_envs = 4096
+        num_envs = 3096
         num_observations = 235
         num_privileged_obs = None # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise 
         num_actions = 12
@@ -81,6 +81,10 @@ class LeggedRobotCfg(BaseConfig):
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
+            """lin_vel_x = [-1.0, -1.0] # min max [m/s]
+            lin_vel_y = [0, 0]   # min max [m/s]
+            ang_vel_yaw = [0, 0]    # min max [rad/s]
+            heading = [0, 0]"""
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
@@ -146,7 +150,7 @@ class LeggedRobotCfg(BaseConfig):
             dof_vel = -0.
             dof_acc = -2.5e-7
             base_height = -0. 
-            feet_air_time =  25.0
+            feet_air_time =  2.0
             collision = -1.
             feet_stumble = -0.0 
             action_rate = -0.01

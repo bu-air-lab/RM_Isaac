@@ -83,7 +83,7 @@ class BaseRMTask():
         self.num_rm_states = 2
 
         if(experiment_type == 'rm'):
-            self.num_obs += self.num_rm_states
+            self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
         elif(experiment_type == 'augmented'):
             self.num_obs += 4 #add foot contacts to state space
         elif(experiment_type == 'naive3T'):
@@ -93,6 +93,7 @@ class BaseRMTask():
         # allocate buffers
         self.obs_buf = torch.zeros(self.num_envs, self.num_obs, device=self.device, dtype=torch.float)
         self.current_rm_states_buf  = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.rm_iters = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)

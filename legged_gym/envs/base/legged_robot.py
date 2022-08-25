@@ -132,18 +132,18 @@ class LeggedRobot(BaseRMTask):
     def get_events(self):
 
         #0 means no symbols true.
-        #1 means transition from q0 -> q1
-        #2 means transition from q1 -> q0
+        #1 means transition to q1
+        #2 means transition to q0
         prop_symbols = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
 
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-        foot_contacts = torch.logical_or(contact, self.last_contacts) 
+        foot_contacts = torch.logical_or(contact, self.last_contacts)
+
+        #Environments of state q0 and q1
+        q0_envs = (self.current_rm_states_buf == 0).nonzero()
+        q1_envs = (self.current_rm_states_buf == 1).nonzero()
         
-        #Determine if each foot is sufficiently high enough to be considered "in air"
-        feet_z_positions = self.link_positions[:, self.feet_indices, 2]
-        clearance_threshold = 0.05 #ground is 0.02
-        foot_clearances = feet_z_positions > clearance_threshold
 
         if(self.gait == 'trot'):
 
@@ -158,17 +158,8 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RR_contacts:
                 FL_RR_contacts = FL_RR_contacts[FL_RR_contacts != item[0]]
 
-
-            #Find environments which have sufficient foot clearances for feet in air
-            """ if(len(FL_RR_contacts.shape) == 2 and FL_RR_contacts.shape[0] > 0):
-                FL_RR_contacts = FL_RR_contacts.squeeze(1)
-
-            RM_transition_envs = []
-            for item in FL_RR_contacts.tolist():
-                if(foot_clearances[item][1] and foot_clearances[item][2]):
-                    RM_transition_envs.append(item)"""
-
             prop_symbols[FL_RR_contacts] = 1
+
 
             #Find environments which have FR/RL contacts
             FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
@@ -176,15 +167,6 @@ class LeggedRobot(BaseRMTask):
 
             for item in non_FR_RL_contacts:
                 FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
-
-            """if(len(FR_RL_contacts.shape) == 2 and FR_RL_contacts.shape[0] > 0):
-                FR_RL_contacts = FR_RL_contacts.squeeze(1)
-
-            #Find environments which have sufficient foot clearances for feet in air
-            RM_transition_envs = []
-            for item in FR_RL_contacts.tolist():
-                if(foot_clearances[item][0] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)"""
 
             prop_symbols[FR_RL_contacts] = 2
 
@@ -201,16 +183,21 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RL_contacts:
                 FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
 
-            """if(len(FL_RL_contacts.shape) == 2 and FL_RL_contacts.shape[0] > 0):
-                FL_RL_contacts = FL_RL_contacts.squeeze(1)
 
-            #Find environments which have sufficient foot clearances for feet in air
-            RM_transition_envs = []
-            for item in FL_RL_contacts.tolist():
-                if(foot_clearances[item][1] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)"""
+            #Check if we should transition from q0 -> q1
+            #Only do so if self.rm_iters >= 8
+            FL_RL_contacts_q0 = np.intersect1d(FL_RL_contacts.cpu(), q0_envs.cpu())
 
-            prop_symbols[FL_RL_contacts] = 1
+            #Find envs from FL_RL_contacts_q0 where self.rm_iters >= 8
+            #These environments can now transition to q1
+            q0_q1_envs = np.intersect1d(FL_RL_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q0_q1_envs] = 1
+
+
+            #Check if we should transition from q1 -> q1
+            #FL_RL_contacts_q1 = np.intersect1d(FL_RL_contacts.cpu(), q1_envs.cpu())
+            #prop_symbols[FL_RL_contacts_q1] = 1
+
 
             #Find environments which have FR/RR contacts
             FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
@@ -219,16 +206,21 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RR_contacts:
                 FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
 
-            """if(len(FR_RR_contacts.shape) == 2 and FR_RR_contacts.shape[0] > 0):
-                FR_RR_contacts = FR_RR_contacts.squeeze(1)
 
-            #Find environments which have sufficient foot clearances for feet in air
-            RM_transition_envs = []
-            for item in FR_RR_contacts.tolist():
-                if(foot_clearances[item][0] and foot_clearances[item][2]):
-                    RM_transition_envs.append(item)"""
+            #Check if we should transition from q1 -> q0
+            #Only do so if self.rm_iters >= 8
+            FR_RR_contacts_q1 = np.intersect1d(FR_RR_contacts.cpu(), q1_envs.cpu())
 
-            prop_symbols[FR_RR_contacts] = 2
+            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
+            #These environments can now transition to q0
+            q1_q0_envs = np.intersect1d(FR_RR_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q1_q0_envs] = 2
+
+
+            #Check if we should transition from q1 -> q1
+            #FL_RL_contacts_q1 = np.intersect1d(FL_RL_contacts.cpu(), q1_envs.cpu())
+            #prop_symbols[FL_RL_contacts_q1] = 1
+
 
         elif(self.gait == 'bound'):
 
@@ -340,6 +332,12 @@ class LeggedRobot(BaseRMTask):
         info = {'computed_reward': self.rew_buf}
         new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info, self.experiment_type)
 
+        #Add 1 to rm_iters per each env. Reset rm_iters for envs when RM state changes.
+        changed_envs = (self.current_rm_states_buf - new_rm_states).nonzero()
+        self.rm_iters[:] += 1
+        self.rm_iters[changed_envs] = 0
+
+        #print("RM state:", new_rm_states)
 
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
@@ -419,8 +417,9 @@ class LeggedRobot(BaseRMTask):
         if self.cfg.env.send_timeouts:
             self.extras["time_outs"] = self.time_out_buf
 
-        # reset RMs indexed by env_ids
+        #reset RMs indexed by env_ids
         self.current_rm_states_buf[env_ids] = 0
+        self.rm_iters[env_ids] = 0
 
     
     def compute_reward(self):
@@ -459,7 +458,8 @@ class LeggedRobot(BaseRMTask):
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions,
-                                rm_state_encoding
+                                rm_state_encoding,
+                                self.rm_iters.unsqueeze(1)
                                 ),dim=-1)
 
         elif(self.experiment_type == 'augmented'):
@@ -1210,7 +1210,8 @@ class LeggedRobot(BaseRMTask):
         self.last_contacts = contact
         first_contact = (self.feet_air_time > 0.) * contact_filt
         self.feet_air_time += self.dt
-        rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
+        #rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
+        rew_airTime = torch.sum((self.feet_air_time) * first_contact, dim=1) # reward only on first contact with the ground
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
@@ -1237,21 +1238,3 @@ class LeggedRobot(BaseRMTask):
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
 
     
-    """
-    def _reward_base_forward(self):
-        #Reward for moving forward
-        return self.base_lin_vel[:,0]
-
-    def _reward_dof_pos_limits(self):
-        # Penalize dof positions too close to the limit
-        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
-        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.)
-        return torch.sum(out_of_limits, dim=1)
-    
-
-    #Multiply joint torques by joint velocities per env
-    def _reward_energy(self):
-
-        return -torch.sum(torch.abs(self.torques) * torch.abs(self.dof_vel), dim=1)
-
-    """
