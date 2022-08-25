@@ -11,77 +11,62 @@ import torch
 
 import matplotlib.pyplot as plt
 
+experiments = ['naive', 'naive3T', 'augmented', 'rm']
 
-args = get_args()
-args.headless = True
-env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
+all_rewards = []
+all_stds = []
 
-# override some parameters for testing
-env_cfg.env.num_envs = 10
+for experiment in experiments:
 
-env_cfg.terrain.mesh_type = 'plane'
-env_cfg.terrain.measure_heights = False
-env_cfg.terrain.num_rows = 5
-env_cfg.terrain.num_cols = 5
-env_cfg.terrain.curriculum = False
+    #Read rewards file per each experiment type
+    file = open(args.experiment+'_rewards.txt', "a")
+    file_lines = file.readlines()
 
-env_cfg.noise.add_noise = False
+    temp_rewards_storage = []
 
-env_cfg.domain_rand.randomize_friction = False
-env_cfg.domain_rand.push_robots = False
+    for line in file_lines:
 
+        rewards = line.split(' ')
+        rewards = [float(r) for r in rewards]
+        temp_rewards_storage.append(rewards)
 
-#methods = ['rm', 'naive', 'augmented', 'naive3T']
-methods = ['naive3T']
+    #Compute average rewards and stds per experiment
+    avg_experiment_rewards = []
+    experiment_stds = []
 
-rewards = []
+    #Loop through all training iters
+    for i in range(len(temp_rewards_storage[0])):
 
-iter_amount = 100
+        #Store rewards from iter i at each experiment
+        reward_i = []
 
-for method in methods:
+        #Loop through all experiment runs
+        for j in range(len(temp_rewards_storage)):
 
-    train_cfg.runner.load_run = method
-    args.experiment = method
-    
-    # prepare environment
-    env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-    obs = env.get_observations()
+            reward_i.append(temp_rewards_storage[j][i])
 
-    method_rewards = []
+        avg_experiment_rewards.append(np.mean(reward_i))
+        experiment_stds.append(np.std(reward_i))
 
-    #Deploy every policy (saved every 5 iterations)
-    for policy_iter in range(0, 1001, iter_amount):
-
-        # load policy
-        train_cfg.runner.resume = True
-        train_cfg.runner.checkpoint = policy_iter
-        ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-        policy = ppo_runner.get_inference_policy(device=env.device)
-
-        #Deploy policy over 10 envs at once
-        #Compute total reward accross all envs.
-        reward = 0
-        for i in range(int(env.max_episode_length)):
-            actions = policy(obs.detach())
-            obs, _, rews, dones, infos = env.step(actions.detach())
-
-            #reward += torch.sum(infos['non_RM_reward']).item()
-            reward += torch.sum(rews).item()
-
-        #Add avg reward a single policy achieved
-        print(reward)
-        method_rewards.append(reward/env_cfg.env.num_envs)
-
-    rewards.append(method_rewards)
-
-    del env
+    all_rewards.append(avg_experiment_rewards)
+    all_stds.append(experiment_stds)
 
 
 fig, ax = plt.subplots()
-time = [i for i in range(0, 1001, iter_amount)]
+time = [i for i in range(0, len(all_rewards[0]))]
 
-for i,method in enumerate(methods):
-    ax.plot(time, rewards[i], label=method)
+for i, experiment in enumerate(experiments):
+
+    std_below = []
+    std_above = []
+
+    for t, reward in enumerate(all_rewards[i]):
+        std_below.append(reward - all_stds[i,t])
+        std_above.append(reward + all_stds[i,t])
+
+
+    ax.plot(time, all_rewards[i], label=experiment)
+    ax.fill_between(time, std_below, std_above, alpha=.1)
 
 ax.legend()
 
