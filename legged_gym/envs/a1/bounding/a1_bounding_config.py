@@ -41,9 +41,9 @@ class A1BoundingCfg( LeggedRobotCfg ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/a1/urdf/a1.urdf'
         name = "a1"
         foot_name = "foot"
-        penalize_contacts_on = ["thigh", "calf"]
-        terminate_after_contacts_on = ["base"]
-        #terminate_after_contacts_on = ["base", "thigh", "calf"]
+        #penalize_contacts_on = ["thigh", "calf"]
+        #terminate_after_contacts_on = ["base"]
+        terminate_after_contacts_on = ["base", "thigh", "calf"]
         self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
   
     class rewards( LeggedRobotCfg.rewards ):
@@ -62,9 +62,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 1000 # number of policy updates
-        load_run = 'v1' # folder directly containing model files
-        checkpoint = 450 # saved model iter
+        max_iterations = 1500 # number of policy updates
+        load_run = 'v5_4' # folder directly containing model files
+        checkpoint = 1500 # saved model iter
 
 
   

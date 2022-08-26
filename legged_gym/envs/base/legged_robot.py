@@ -158,7 +158,14 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RR_contacts:
                 FL_RR_contacts = FL_RR_contacts[FL_RR_contacts != item[0]]
 
-            prop_symbols[FL_RR_contacts] = 1
+            #Check if we should transition from q0 -> q1
+            #Only do so if self.rm_iters >= 8
+            FL_RR_contacts_q0 = np.intersect1d(FL_RR_contacts.cpu(), q0_envs.cpu())
+
+            #Find envs from FL_RR_contacts_q0 where self.rm_iters >= 8
+            #These environments can now transition to q1
+            q0_q1_envs = np.intersect1d(FL_RR_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q0_q1_envs] = 1
 
 
             #Find environments which have FR/RL contacts
@@ -168,7 +175,15 @@ class LeggedRobot(BaseRMTask):
             for item in non_FR_RL_contacts:
                 FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
 
-            prop_symbols[FR_RL_contacts] = 2
+            #Check if we should transition from q1 -> q0
+            #Only do so if self.rm_iters >= 8
+            FR_RL_contacts_q1 = np.intersect1d(FR_RL_contacts.cpu(), q1_envs.cpu())
+
+            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
+            #These environments can now transition to q0
+            q1_q0_envs = np.intersect1d(FR_RL_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q1_q0_envs] = 2
+
 
         elif(self.gait == 'pace'):
 
@@ -183,7 +198,6 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_RL_contacts:
                 FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
 
-
             #Check if we should transition from q0 -> q1
             #Only do so if self.rm_iters >= 8
             FL_RL_contacts_q0 = np.intersect1d(FL_RL_contacts.cpu(), q0_envs.cpu())
@@ -193,19 +207,12 @@ class LeggedRobot(BaseRMTask):
             q0_q1_envs = np.intersect1d(FL_RL_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
-
-            #Check if we should transition from q1 -> q1
-            #FL_RL_contacts_q1 = np.intersect1d(FL_RL_contacts.cpu(), q1_envs.cpu())
-            #prop_symbols[FL_RL_contacts_q1] = 1
-
-
             #Find environments which have FR/RR contacts
             FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
             non_FR_RR_contacts = (torch.sum(FL_RL_masked, dim=1) > 0).nonzero().tolist()
 
             for item in non_FR_RR_contacts:
                 FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
-
 
             #Check if we should transition from q1 -> q0
             #Only do so if self.rm_iters >= 8
@@ -215,11 +222,6 @@ class LeggedRobot(BaseRMTask):
             #These environments can now transition to q0
             q1_q0_envs = np.intersect1d(FR_RR_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
             prop_symbols[q1_q0_envs] = 2
-
-
-            #Check if we should transition from q1 -> q1
-            #FL_RL_contacts_q1 = np.intersect1d(FL_RL_contacts.cpu(), q1_envs.cpu())
-            #prop_symbols[FL_RL_contacts_q1] = 1
 
 
         elif(self.gait == 'bound'):
@@ -235,33 +237,32 @@ class LeggedRobot(BaseRMTask):
             for item in non_FL_FR_contacts:
                 FL_FR_contacts = FL_FR_contacts[FL_FR_contacts != item[0]]
 
-            """if(len(FL_FR_contacts.shape) == 2 and FL_FR_contacts.shape[0] > 0):
-                FL_FR_contacts = FL_FR_contacts.squeeze(1)
 
-            #Find environments which have sufficient foot clearances for feet in air
-            RM_transition_envs = []
-            for item in FL_FR_contacts.tolist():
-                if(foot_clearances[item][2] and foot_clearances[item][3]):
-                    RM_transition_envs.append(item)"""
+            #Check if we should transition from q0 -> q1
+            #Only do so if self.rm_iters >= 8
+            FL_FR_contacts_q0 = np.intersect1d(FL_FR_contacts.cpu(), q0_envs.cpu())
 
-            prop_symbols[FL_FR_contacts] = 1
+            #Find envs from FL_FR_contacts_q0 where self.rm_iters >= 8
+            #These environments can now transition to q1
+            q0_q1_envs = np.intersect1d(FL_FR_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q0_q1_envs] = 1
 
-            #Find environments which have FR/RR contacts
+
+            #Find environments which have RL/RR contacts
             RL_RR_contacts = (torch.sum(RL_RR_masked, dim=1) == 2).nonzero()
             non_RL_RR_contacts = (torch.sum(FL_FR_masked, dim=1) > 0).nonzero().tolist()
 
             for item in non_RL_RR_contacts:
                 RL_RR_contacts = RL_RR_contacts[RL_RR_contacts != item[0]]
 
-            """if(len(RL_RR_contacts.shape) == 2 and RL_RR_contacts.shape[0] > 0):
-                RL_RR_contacts = RL_RR_contacts.squeeze(1)
+            #Check if we should transition from q1 -> q0
+            #Only do so if self.rm_iters >= 8
+            RL_RR_contacts_q1 = np.intersect1d(RL_RR_contacts.cpu(), q1_envs.cpu())
 
-            RM_transition_envs = []
-            for item in RL_RR_contacts.tolist():
-                if(foot_clearances[item][0] and foot_clearances[item][1]):
-                    RM_transition_envs.append(item)"""
-
-            prop_symbols[RL_RR_contacts] = 2
+            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
+            #These environments can now transition to q0
+            q1_q0_envs = np.intersect1d(RL_RR_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            prop_symbols[q1_q0_envs] = 2
 
         return prop_symbols
 
@@ -337,10 +338,10 @@ class LeggedRobot(BaseRMTask):
         self.rm_iters[:] += 1
         self.rm_iters[changed_envs] = 0
 
-        #print("RM state:", new_rm_states)
-
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
+
+        print("RM state:", new_rm_states)
 
         #Update observation buffers for naive3T
         if(self.experiment_type == 'naive3T'):
@@ -353,7 +354,6 @@ class LeggedRobot(BaseRMTask):
 
             self.past_dof_vel.pop()
             self.past_dof_vel.insert(0, self.dof_vel)
-
 
 
         self.compute_observations() # in some cases a simulation step might be required to refresh some obs (for example body positions)
@@ -1210,8 +1210,8 @@ class LeggedRobot(BaseRMTask):
         self.last_contacts = contact
         first_contact = (self.feet_air_time > 0.) * contact_filt
         self.feet_air_time += self.dt
-        #rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
-        rew_airTime = torch.sum((self.feet_air_time) * first_contact, dim=1) # reward only on first contact with the ground
+        rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
+        #rew_airTime = torch.sum((self.feet_air_time) * first_contact, dim=1) # reward only on first contact with the ground
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime

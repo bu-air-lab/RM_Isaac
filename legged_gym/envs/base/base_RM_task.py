@@ -138,6 +138,7 @@ class BaseRMTask():
         """ Reset all robots"""
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
         obs, privileged_obs, _, _, _ = self.step(torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
+        self.rm_iters[:] = 0
         return obs, privileged_obs
 
     def step(self, actions):
