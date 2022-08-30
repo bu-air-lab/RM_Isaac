@@ -22,6 +22,8 @@ class A1BoundingCfg( LeggedRobotCfg ):
 
     class env( LeggedRobotCfg.env ):
         num_observations = 39
+        rm_iters = 8
+        rm_iters_curriculum = False
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'plane'
@@ -34,6 +36,9 @@ class A1BoundingCfg( LeggedRobotCfg ):
         damping = {'joint': 0.5}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
+
+        curriculum = False
+
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
 
@@ -48,13 +53,14 @@ class A1BoundingCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.27
+        base_height_target = 0.28
+        dof_acc_curriculum = False
         class scales( LeggedRobotCfg.rewards.scales ):
-            torques = -0.0005
-            #torques = -0.0002
             #torques = -0.0005
+            torques = -0.0002
             dof_pos_limits = -10.0
-            base_height = -10.0
+            base_height = -50.0
+            #orientation = -1.0
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -62,9 +68,9 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 1500 # number of policy updates
-        load_run = 'v5_4' # folder directly containing model files
-        checkpoint = 1500 # saved model iter
+        max_iterations = 1000 # number of policy updates
+        load_run = 'v17' # folder directly containing model files
+        checkpoint = 1000 # saved model iter
 
 
   

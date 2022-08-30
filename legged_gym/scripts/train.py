@@ -43,6 +43,10 @@ def train(args):
 	ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
 	ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
+	print("Final Action Scale:", env.action_scale)
+	print("Final doc_acc scale:", env.reward_scales['dof_acc'])
+	print("Final rm_iters:", env.cfg.env.rm_iters)
+
 
 if __name__ == '__main__':
     args = get_args()

@@ -124,7 +124,12 @@ class LeggedRobot(BaseRMTask):
                 self.past_dof_pos.append(self.default_dof_pos[0].repeat(self.num_envs, 1))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
-        self.action_scale = torch.tensor([0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25, 0.01, 0.25, 0.25]).to(self.device)
+        #hip_scale = 0.1
+
+        self.action_scale = torch.tensor([0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25]).to(self.device)
+        #self.action_scale = torch.tensor([hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25]).to(self.device)
+        #self.action_scale = torch.tensor([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]).to(self.device)
+        #self.action_scale = torch.tensor([0.15, 0.25, 0.25, 0.15, 0.25, 0.25, 0.15, 0.25, 0.25, 0.15, 0.25, 0.25]).to(self.device)
         self.init_done = True
 
     #Needed for RM implementation
@@ -164,7 +169,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_RR_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = np.intersect1d(FL_RR_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q0_q1_envs = np.intersect1d(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -181,7 +186,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
-            q1_q0_envs = np.intersect1d(FR_RL_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q1_q0_envs = np.intersect1d(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q1_q0_envs] = 2
 
 
@@ -204,7 +209,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_RL_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = np.intersect1d(FL_RL_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q0_q1_envs = np.intersect1d(FL_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
             #Find environments which have FR/RR contacts
@@ -220,7 +225,8 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
-            q1_q0_envs = np.intersect1d(FR_RR_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q1_q0_envs = np.intersect1d(FR_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
+
             prop_symbols[q1_q0_envs] = 2
 
 
@@ -244,7 +250,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_FR_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = np.intersect1d(FL_FR_contacts_q0, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q0_q1_envs = np.intersect1d(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -261,7 +267,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
-            q1_q0_envs = np.intersect1d(RL_RR_contacts_q1, (self.rm_iters[:] >= 8).nonzero().cpu())
+            q1_q0_envs = np.intersect1d(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q1_q0_envs] = 2
 
         return prop_symbols
@@ -341,7 +347,7 @@ class LeggedRobot(BaseRMTask):
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
 
-        print("RM state:", new_rm_states)
+        #print("RM state:", new_rm_states)
 
         #Update observation buffers for naive3T
         if(self.experiment_type == 'naive3T'):
@@ -390,6 +396,15 @@ class LeggedRobot(BaseRMTask):
         # avoid updating command curriculum at each step since the maximum command is common to all envs
         if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length==0):
             self.update_command_curriculum(env_ids)
+        #Update action scale curriculum
+        if self.cfg.control.curriculum and (self.common_step_counter % self.max_episode_length==0):
+            self._update_action_scale_curriculum(env_ids)
+        #Update joint acceleration penalty curriculum
+        if self.cfg.rewards.dof_acc_curriculum and (self.common_step_counter % self.max_episode_length==0):
+            self._update_dof_acc_curriculum(env_ids)
+        #Update rm_iters curriculum
+        if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % self.max_episode_length==0):
+            self._update_rm_iters_curriculum(env_ids)
         
         # reset robot states
         self._reset_dofs(env_ids)
@@ -652,6 +667,7 @@ class LeggedRobot(BaseRMTask):
         # set small commands to zero
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
+
     def _compute_torques(self, actions):
         """ Compute torques from actions.
             Actions can be interpreted as position or velocity targets given to a PD controller, or directly as scaled torques.
@@ -664,7 +680,9 @@ class LeggedRobot(BaseRMTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
-        actions_scaled = actions * self.action_scale #self.cfg.control.action_scale
+        actions_scaled = actions * self.action_scale
+
+        #actions_scaled = actions * self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
@@ -752,9 +770,36 @@ class LeggedRobot(BaseRMTask):
         """
         # If the tracking reward is above 80% of the maximum, increase the range of commands
         if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
-            self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.5, -self.cfg.commands.max_curriculum, 0.)
-            self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.5, 0., self.cfg.commands.max_curriculum)
+            self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.2, -self.cfg.commands.max_curriculum, 0.)
+            self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.2, 0., self.cfg.commands.max_curriculum)
 
+    def _update_action_scale_curriculum(self, env_ids):
+        """
+            Implements a curriculum of increasing range of motion for hip joints (indexed: 0,3,6,9)
+        """
+        # If the tracking reward is above 80% of the maximum, increase the range of motion
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
+
+            #Max action scale is 0.25
+            if(self.action_scale[0] < 0.25):
+                self.action_scale[[0,3,6,9]] += 0.01
+
+    def _update_dof_acc_curriculum(self, env_ids):
+        """
+            Implements a curriculum of increasing joint acceleration penalty
+        """
+        # If the tracking reward is above 80% of the maximum, increase the penalty for joint acceleration. Starts at -2.5e-7
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
+            self.reward_scales['dof_acc'] -= (1e-7 * self.dt)
+
+    def _update_rm_iters_curriculum(self, env_ids):
+        """
+            Implements a curriculum of decreasing gait frequency
+        """
+        # If the tracking reward is above 80% of the maximum, decrease the target gait frequency by 1 env step
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
+            self.cfg.env.rm_iters += 1
+            
 
     def _get_noise_scale_vec(self, cfg):
         """ Sets a vector used to scale the noise added to the observations.
