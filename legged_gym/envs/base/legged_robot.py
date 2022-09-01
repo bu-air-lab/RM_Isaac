@@ -374,9 +374,20 @@ class LeggedRobot(BaseRMTask):
     def check_termination(self):
         """ Check if environments need to be reset
         """
+
+        #Terminate if any joint is ever out of bounds
+        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
+        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.) # upper limit
+        out_of_limits = torch.sum(out_of_limits, dim=1)
+        out_of_limits_envs = out_of_limits.nonzero()
+
+        #Terminate if wrong limb touches ground, or timeout
         self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
+        self.reset_buf[out_of_limits_envs] = True
+
+
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -1256,7 +1267,6 @@ class LeggedRobot(BaseRMTask):
         first_contact = (self.feet_air_time > 0.) * contact_filt
         self.feet_air_time += self.dt
         rew_airTime = torch.sum((self.feet_air_time - 0.5) * first_contact, dim=1) # reward only on first contact with the ground
-        #rew_airTime = torch.sum((self.feet_air_time) * first_contact, dim=1) # reward only on first contact with the ground
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
