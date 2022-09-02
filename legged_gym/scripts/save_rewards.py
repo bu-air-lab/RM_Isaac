@@ -32,7 +32,7 @@ env_cfg.domain_rand.push_robots = False
 
 
 experiment_num = 1
-train_cfg.runner.load_run = args.experiment + str(experiment_num)
+train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(experiment_num)
 
 rewards = []
 
@@ -41,8 +41,8 @@ rewards = []
 env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 obs = env.get_observations()
 
-#Deploy every policy (saved every 5 iterations)
-for policy_iter in range(0, 1001, 50):
+#Deploy every policy (saved every 50 iterations)
+for policy_iter in range(0, 2001, 50):
 
     # load policy
     train_cfg.runner.resume = True
@@ -65,7 +65,7 @@ for policy_iter in range(0, 1001, 50):
     rewards.append(reward/env_cfg.env.num_envs)
 
 #Now append to file
-file = open(args.experiment+'_rewards.txt', "a")
+file = open(args.experiment + '_' + args.gait + '_rewards.txt', "a")
 for r in rewards:
     file.write(str(r) + ' ')
 file.write('\n')

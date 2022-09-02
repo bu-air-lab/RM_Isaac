@@ -124,12 +124,10 @@ class LeggedRobot(BaseRMTask):
                 self.past_dof_pos.append(self.default_dof_pos[0].repeat(self.num_envs, 1))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
-        #hip_scale = 0.1
-
         self.action_scale = torch.tensor([0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25]).to(self.device)
-        #self.action_scale = torch.tensor([hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25, hip_scale, 0.25, 0.25]).to(self.device)
-        #self.action_scale = torch.tensor([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]).to(self.device)
-        #self.action_scale = torch.tensor([0.15, 0.25, 0.25, 0.15, 0.25, 0.25, 0.15, 0.25, 0.25, 0.15, 0.25, 0.25]).to(self.device)
+        self.max_torque = 35.5
+        self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
+
         self.init_done = True
 
     #Needed for RM implementation
@@ -286,7 +284,13 @@ class LeggedRobot(BaseRMTask):
         # step physics and render each frame
         self.render()
         for _ in range(self.cfg.control.decimation):
+
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
+
+            #Check if any environments send torque commands that are too large
+            torque_exceeded_envs = (self.torques > self.max_torque).nonzero()[:,0]
+            self.max_torque_exceeded_envs = torch.cat((self.max_torque_exceeded_envs, torque_exceeded_envs))
+
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
@@ -386,6 +390,10 @@ class LeggedRobot(BaseRMTask):
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
         self.reset_buf[out_of_limits_envs] = True
+
+        #Terminate if max torque command was sent
+        self.reset_buf[self.max_torque_exceeded_envs] = True
+        self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
 
 
 
