@@ -11,7 +11,10 @@ import torch
 
 import matplotlib.pyplot as plt
 
-experiments = ['naive', 'naive3T', 'augmented', 'rm']
+args = get_args()
+
+#experiments = ['naive', 'naive3T', 'augmented', 'rm']
+experiments = ['augmented', 'rm']
 
 all_rewards = []
 all_stds = []
@@ -19,14 +22,14 @@ all_stds = []
 for experiment in experiments:
 
     #Read rewards file per each experiment type
-    file = open(args.experiment+'_rewards.txt', "a")
+    file = open(experiment + '_' + args.gait + '_rewards.txt', "r")
     file_lines = file.readlines()
 
     temp_rewards_storage = []
 
     for line in file_lines:
 
-        rewards = line.split(' ')
+        rewards = line.split(' ')[:-1]
         rewards = [float(r) for r in rewards]
         temp_rewards_storage.append(rewards)
 
@@ -51,6 +54,7 @@ for experiment in experiments:
     all_rewards.append(avg_experiment_rewards)
     all_stds.append(experiment_stds)
 
+all_stds = np.array(all_stds)
 
 fig, ax = plt.subplots()
 time = [i for i in range(0, len(all_rewards[0]))]

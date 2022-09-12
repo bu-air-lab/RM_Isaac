@@ -17,7 +17,7 @@ args.headless = True
 env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
 
 # override some parameters for testing
-env_cfg.env.num_envs = 10
+env_cfg.env.num_envs = 100
 
 env_cfg.terrain.mesh_type = 'plane'
 env_cfg.terrain.measure_heights = False
@@ -32,7 +32,7 @@ env_cfg.domain_rand.push_robots = False
 
 
 experiment_num = 1
-train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(experiment_num)
+train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(args.seed)
 
 rewards = []
 
@@ -42,7 +42,7 @@ env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 obs = env.get_observations()
 
 #Deploy every policy (saved every 50 iterations)
-for policy_iter in range(0, 2001, 50):
+for policy_iter in range(0, 1501, 50):
 
     # load policy
     train_cfg.runner.resume = True
@@ -61,7 +61,7 @@ for policy_iter in range(0, 2001, 50):
         reward += torch.sum(rews).item()
 
     #Add avg reward a single policy achieved
-    print(reward)
+    print(reward/env_cfg.env.num_envs)
     rewards.append(reward/env_cfg.env.num_envs)
 
 #Now append to file

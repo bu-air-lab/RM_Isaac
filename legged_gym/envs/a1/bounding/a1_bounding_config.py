@@ -21,13 +21,17 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_observations = 39
-        rm_iters = 8
+        num_observations = 43
+        rm_iters = 14
         rm_iters_curriculum = False
+        rm_iters_range = [8, 16]
 
     class terrain( LeggedRobotCfg.terrain ):
         mesh_type = 'plane'
         measure_heights = False
+
+    class sim( LeggedRobotCfg.sim ):
+        dt = 0.005
 
     class control( LeggedRobotCfg.control ):
         # PD Drive parameters:
@@ -40,7 +44,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         curriculum = False
 
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 4
+        decimation = 3
 
     class asset( LeggedRobotCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/a1/urdf/a1.urdf'
@@ -60,6 +64,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
             torques = -0.0002
             dof_pos_limits = -10.0
             base_height = -50.0
+            #feet_contact_forces = -2
             #orientation = -1.0
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
@@ -69,7 +74,7 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1500 # number of policy updates
-        load_run = 'v0' # folder directly containing model files
+        load_run = 'rm_bound1' # folder directly containing model files
         checkpoint = 1500 # saved model iter
 
 
