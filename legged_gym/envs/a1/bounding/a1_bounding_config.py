@@ -21,14 +21,34 @@ class A1BoundingCfg( LeggedRobotCfg ):
         }
 
     class env( LeggedRobotCfg.env ):
-        num_observations = 43
-        rm_iters = 14
-        rm_iters_curriculum = False
-        rm_iters_range = [8, 16]
+        num_envs = 4096
+        num_observations = 42
+        rm_iters = 10
+        #rm_iters_curriculum = False
+        #rm_iters_range = [8, 14]
+        #rm_iters_range = [8, 9]
+        #rm_iters_range = [11,12]
+        #rm_iters_range = [15, 16]
 
     class terrain( LeggedRobotCfg.terrain ):
-        mesh_type = 'plane'
-        measure_heights = False
+        #mesh_type = 'plane'
+        #measure_heights = False        selected = True # select a unique terrain type and pass all arguments
+
+        curriculum = True
+
+        #Default tertain curriculum
+        #terrain_proportions = [0.1, 0.1, 0.35, 0.25, 0.2]
+
+        #Select only easiest 2 terrain types
+        terrain_proportions = [0.5, 0.5, 0, 0, 0]
+        selected = False
+        #terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
+
+        max_init_terrain_level = 5 # starting curriculum state
+        terrain_length = 8.
+        terrain_width = 8.
+        num_rows= 10 # number of terrain rows (levels)
+        num_cols = 20 # number of terrain cols (types)
 
     class sim( LeggedRobotCfg.sim ):
         dt = 0.005
@@ -44,7 +64,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         curriculum = False
 
         # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 3
+        decimation = 4
 
     class asset( LeggedRobotCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/a1/urdf/a1.urdf'
@@ -73,9 +93,6 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 1500 # number of policy updates
-        load_run = 'rm_bound1' # folder directly containing model files
-        checkpoint = 1500 # saved model iter
-
-
-  
+        max_iterations = 1000 # number of policy updates
+        load_run = 'rm_bound3' # folder directly containing model files
+        checkpoint = 1000 # saved model iter

@@ -124,6 +124,7 @@ class LeggedRobot(BaseRMTask):
                 self.past_dof_pos.append(self.default_dof_pos[0].repeat(self.num_envs, 1))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
+        #self.action_scale = torch.tensor([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]).to(self.device)
         self.action_scale = torch.tensor([0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25]).to(self.device)
         self.max_torque = 35.5
         self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
@@ -174,7 +175,8 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_RR_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            #q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -194,7 +196,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
-            q1_q0_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q1_q0_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
 
@@ -219,7 +221,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_RL_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = self.intersection(FL_RL_contacts_q0, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q0_q1_envs = self.intersection(FL_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
             #Find environments which have FR/RR contacts
@@ -238,7 +240,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
-            q1_q0_envs = self.intersection(FR_RR_contacts_q1, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q1_q0_envs = self.intersection(FR_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
 
             prop_symbols[q1_q0_envs] = 2
 
@@ -265,7 +267,7 @@ class LeggedRobot(BaseRMTask):
 
             #Find envs from FL_FR_contacts_q0 where self.rm_iters >= 8
             #These environments can now transition to q1
-            q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             #q0_q1_envs = np.intersect1d(FL_FR_contacts_q0.cpu(), (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
@@ -288,7 +290,7 @@ class LeggedRobot(BaseRMTask):
             #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
             #These environments can now transition to q0
             #q1_q0_envs = np.intersect1d(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
-            q1_q0_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
+            q1_q0_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
         return prop_symbols
@@ -475,14 +477,15 @@ class LeggedRobot(BaseRMTask):
         if self.cfg.rewards.dof_acc_curriculum and (self.common_step_counter % self.max_episode_length==0):
             self._update_dof_acc_curriculum(env_ids)
         #Update rm_iters curriculum
-        if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % self.max_episode_length==0):
-            self._update_rm_iters_curriculum(env_ids)
+        #if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % self.max_episode_length==0):
+        #    self._update_rm_iters_curriculum(env_ids)
         
         # reset robot states
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
 
         self._resample_commands(env_ids)
+        #self._resample_rm_iters(env_ids)
 
         # reset buffers
         self.last_actions[env_ids] = 0.
@@ -547,8 +550,8 @@ class LeggedRobot(BaseRMTask):
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions,
                                 rm_state_encoding,
-                                self.rm_iters.unsqueeze(1),
-                                self.max_rm_iters
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale#,
+                                #self.max_rm_iters * self.obs_scales.rm_iters_scale
                                 ),dim=-1)
 
         elif(self.experiment_type == 'augmented'):
@@ -557,7 +560,7 @@ class LeggedRobot(BaseRMTask):
             foot_contacts = torch.logical_or(contact, self.last_contacts) 
             #self.last_contacts = contact
 
-            self.obs_buf = torch.cat((  #self.base_lin_vel * self.obs_scales.lin_vel,
+            self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                     #self.base_ang_vel  * self.obs_scales.ang_vel,
                     #self.projected_gravity,
                     self.commands[:, :3] * self.commands_scale,
@@ -565,7 +568,8 @@ class LeggedRobot(BaseRMTask):
                     self.dof_vel * self.obs_scales.dof_vel,
                     self.actions,
                     foot_contacts,
-                    self.rm_iters.unsqueeze(1)
+                    self.rm_iters.unsqueeze(1)#,
+                    #self.max_rm_iters
                     ),dim=-1)
 
         elif(self.experiment_type == 'naive3T'):
@@ -708,7 +712,7 @@ class LeggedRobot(BaseRMTask):
         """
         env_ids = (self.episode_length_buf % int(self.cfg.commands.resampling_time / self.dt)==0).nonzero(as_tuple=False).flatten()
         self._resample_commands(env_ids)
-        self._resample_rm_iters(env_ids)
+        #self._resample_rm_iters(env_ids)
         if self.cfg.commands.heading_command:
             forward = quat_apply(self.base_quat, self.forward_vec)
             heading = torch.atan2(forward[:, 1], forward[:, 0])
@@ -736,8 +740,8 @@ class LeggedRobot(BaseRMTask):
         self.commands[env_ids, :2] *= (torch.norm(self.commands[env_ids, :2], dim=1) > 0.2).unsqueeze(1)
 
     #Randomly select new rm_iters target
-    def _resample_rm_iters(self, env_ids):
-        self.max_rm_iters[env_ids] = torch.randint(self.cfg.env.rm_iters_range[0], self.cfg.env.rm_iters_range[1], (len(env_ids), 1), device=self.device)
+    #def _resample_rm_iters(self, env_ids):
+    #    self.max_rm_iters[env_ids] = torch.randint(self.cfg.env.rm_iters_range[0], self.cfg.env.rm_iters_range[1], (len(env_ids), 1), device=self.device)
 
     def _compute_torques(self, actions):
         """ Compute torques from actions.
@@ -863,13 +867,10 @@ class LeggedRobot(BaseRMTask):
         if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
             self.reward_scales['dof_acc'] -= (1e-7 * self.dt)
 
-    def _update_rm_iters_curriculum(self, env_ids):
-        """
-            Implements a curriculum of decreasing gait frequency
-        """
+    """def _update_rm_iters_curriculum(self, env_ids):
         # If the tracking reward is above 80% of the maximum, decrease the target gait frequency by 1 env step
         if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
-            self.cfg.env.rm_iters += 1
+            self.cfg.env.rm_iters += 1"""
             
 
     def _get_noise_scale_vec(self, cfg):
@@ -897,6 +898,10 @@ class LeggedRobot(BaseRMTask):
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
+        """noise_vec[:3] = 0. # commands
+        noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[27:40] = 0. # previous actions + RM state"""
         noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
         noise_vec[3:6] = 0. # commands
         noise_vec[6:18] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
@@ -953,7 +958,7 @@ class LeggedRobot(BaseRMTask):
         self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False,) # TODO change this
-        self.max_rm_iters = torch.zeros(self.num_envs, 1, dtype=torch.long, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
+        #self.max_rm_iters = torch.zeros(self.num_envs, 1, dtype=torch.long, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
         self.last_contacts = torch.zeros(self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False)
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
@@ -983,7 +988,7 @@ class LeggedRobot(BaseRMTask):
         self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
 
         #init all to 10
-        self.max_rm_iters[:] = 10
+        #self.max_rm_iters[:] = torch.randint(self.cfg.env.rm_iters_range[0], self.cfg.env.rm_iters_range[1], (self.num_envs, 1), device=self.device)
 
     def _prepare_reward_function(self):
         """ Prepares a list of reward functions, which will be called to compute the total reward.
@@ -1156,6 +1161,10 @@ class LeggedRobot(BaseRMTask):
             if not self.cfg.terrain.curriculum: max_init_level = self.cfg.terrain.num_rows - 1
             self.terrain_levels = torch.randint(0, max_init_level+1, (self.num_envs,), device=self.device)
             self.terrain_types = torch.div(torch.arange(self.num_envs, device=self.device), (self.num_envs/self.cfg.terrain.num_cols), rounding_mode='floor').to(torch.long)
+            #self.terrain_types = torch.zeros(self.num_envs, device=self.device).to(torch.long)
+            #self.terrain_types[:] = 2
+            #print(self.terrain_types)
+            #zz
             self.max_terrain_level = self.cfg.terrain.num_rows
             self.terrain_origins = torch.from_numpy(self.terrain.env_origins).to(self.device).to(torch.float)
             self.env_origins[:] = self.terrain_origins[self.terrain_levels, self.terrain_types]

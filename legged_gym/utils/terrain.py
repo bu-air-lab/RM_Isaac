@@ -91,7 +91,6 @@ class Terrain:
             for i in range(self.cfg.num_rows):
                 difficulty = i / self.cfg.num_rows
                 choice = j / self.cfg.num_cols + 0.001
-
                 terrain = self.make_terrain(choice, difficulty)
                 self.add_terrain_to_map(terrain, i, j)
 

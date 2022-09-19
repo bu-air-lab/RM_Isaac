@@ -88,6 +88,8 @@ class BaseRMTask():
             self.num_obs += 4 + 1 #add foot contacts and rm_iters to state space
         elif(experiment_type == 'naive3T'):
             self.num_obs *= 3 #State space include past 2 timesteps as well
+        elif(experiment_type == 'naive'):
+            self.num_obs -= 1 #no rm_iters
 
 
         # allocate buffers

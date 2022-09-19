@@ -76,7 +76,7 @@ ax.legend()
 
 plt.xlabel('Training Iterations')
 plt.ylabel('Reward')
-plt.savefig("plot.pdf", bbox_inches='tight')
+plt.savefig("plot_" + args.gait + ".pdf", bbox_inches='tight')
 
 
 """for i,method in enumerate(methods):

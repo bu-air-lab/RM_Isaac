@@ -30,8 +30,6 @@ env_cfg.noise.add_noise = False
 env_cfg.domain_rand.randomize_friction = False
 env_cfg.domain_rand.push_robots = False
 
-
-experiment_num = 1
 train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(args.seed)
 
 rewards = []
@@ -42,7 +40,7 @@ env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 obs = env.get_observations()
 
 #Deploy every policy (saved every 50 iterations)
-for policy_iter in range(0, 1501, 50):
+for policy_iter in range(0, 1001, 50):
 
     # load policy
     train_cfg.runner.resume = True
