@@ -23,16 +23,31 @@ class A1BoundingCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 42
-        rm_iters = 10
+        rm_iters = 8
         #rm_iters_curriculum = False
         #rm_iters_range = [8, 14]
         #rm_iters_range = [8, 9]
         #rm_iters_range = [11,12]
         #rm_iters_range = [15, 16]
 
+    class commands (LeggedRobotCfg.commands):
+        curriculum = False
+        max_curriculum = 1.
+        num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+        resampling_time = 10. # time before command are changed[s]
+        heading_command = False # if true: compute ang vel command from heading error
+        class ranges:
+            #lin_vel_x = [-1.0, 1.0] # min max [m/s]
+            #lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+            #ang_vel_yaw = [-1, 1]    # min max [rad/s]
+            #heading = [-3.14, 3.14]
+            lin_vel_x = [-1.0, 1.0] # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+            ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
+
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
-        #measure_heights = False        selected = True # select a unique terrain type and pass all arguments
+        #measure_heights = False
 
         curriculum = True
 
@@ -40,7 +55,9 @@ class A1BoundingCfg( LeggedRobotCfg ):
         #terrain_proportions = [0.1, 0.1, 0.35, 0.25, 0.2]
 
         #Select only easiest 2 terrain types
-        terrain_proportions = [0.5, 0.5, 0, 0, 0]
+        #terrain_proportions = [1.0, 0, 0, 0, 0]
+        #terrain_proportions = [0.5, 0.5, 0, 0, 0]
+        terrain_proportions = [0.3, 0.3, 0, 0, 0.4]
         selected = False
         #terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
 
@@ -80,12 +97,10 @@ class A1BoundingCfg( LeggedRobotCfg ):
         base_height_target = 0.27
         dof_acc_curriculum = False
         class scales( LeggedRobotCfg.rewards.scales ):
-            #torques = -0.0005
             torques = -0.0002
             dof_pos_limits = -10.0
-            base_height = -50.0
-            #feet_contact_forces = -2
-            #orientation = -1.0
+            base_height = -10.0
+            orientation = -1.0
 
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -94,5 +109,5 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1000 # number of policy updates
-        load_run = 'rm_bound3' # folder directly containing model files
+        load_run = 'rm_trot1' # folder directly containing model files
         checkpoint = 1000 # saved model iter

@@ -563,7 +563,7 @@ class LeggedRobot(BaseRMTask):
             self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                     #self.base_ang_vel  * self.obs_scales.ang_vel,
                     #self.projected_gravity,
-                    self.commands[:, :3] * self.commands_scale,
+                    #self.commands[:, :3] * self.commands_scale,
                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                     self.dof_vel * self.obs_scales.dof_vel,
                     self.actions,
@@ -898,15 +898,23 @@ class LeggedRobot(BaseRMTask):
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
+
         """noise_vec[:3] = 0. # commands
         noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[27:40] = 0. # previous actions + RM state"""
+
         noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
         noise_vec[3:6] = 0. # commands
         noise_vec[6:18] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[18:30] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[30:43] = 0. # previous actions + RM state
+
+        """noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
+        noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[27:40] = 0. # previous actions + RM state"""
+
         if self.cfg.terrain.measure_heights:
             noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec

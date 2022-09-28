@@ -148,7 +148,8 @@ class TaskRegistry():
 
         if log_root=="default":
             log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
-            log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
+            #log_dir = os.path.join(log_root, datetime.now().strftime('%b%d_%H-%M-%S') + '_' + train_cfg.runner.run_name)
+            log_dir = os.path.join(log_root, args.experiment + '_' + args.gait + str(args.seed))
             if not os.path.exists(log_dir) and not train_cfg.runner.resume:
                 os.makedirs(log_dir)
             #os.mkdir(log_dir)
