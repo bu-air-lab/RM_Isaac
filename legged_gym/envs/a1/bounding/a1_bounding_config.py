@@ -23,12 +23,14 @@ class A1BoundingCfg( LeggedRobotCfg ):
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
         num_observations = 42
-        rm_iters = 8
-        #rm_iters_curriculum = False
-        #rm_iters_range = [8, 14]
-        #rm_iters_range = [8, 9]
-        #rm_iters_range = [11,12]
-        #rm_iters_range = [15, 16]
+
+        rm_iters = 4
+        rm_iters_curriculum = True
+        max_rm_iters = 8
+
+        remove_bonus_iter = 2000
+
+        max_foot_clearance = 0.3
 
     class commands (LeggedRobotCfg.commands):
         curriculum = False
@@ -37,10 +39,9 @@ class A1BoundingCfg( LeggedRobotCfg ):
         resampling_time = 10. # time before command are changed[s]
         heading_command = False # if true: compute ang vel command from heading error
         class ranges:
-            #lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            #lin_vel_y = [-1.0, 1.0]   # min max [m/s]
-            #ang_vel_yaw = [-1, 1]    # min max [rad/s]
-            #heading = [-3.14, 3.14]
+            #lin_vel_x = [1.0, 1.0] # min max [m/s]
+            #lin_vel_y = [0, 0]   # min max [m/s]
+            #ang_vel_yaw = [0, 0]    # min max [rad/s]
             lin_vel_x = [-1.0, 1.0] # min max [m/s]
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
@@ -48,6 +49,10 @@ class A1BoundingCfg( LeggedRobotCfg ):
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
         #measure_heights = False
+
+        measure_heights = True
+        measured_points_x = [0.]
+        measured_points_y = [0.]
 
         curriculum = True
 
@@ -108,6 +113,7 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 1000 # number of policy updates
-        load_run = 'rm_trot1' # folder directly containing model files
-        checkpoint = 1000 # saved model iter
+        max_iterations = 3000 # number of policy updates
+        load_run = 'rm_pace3' # folder directly containing model files
+        checkpoint = 3000 # saved model iter
+

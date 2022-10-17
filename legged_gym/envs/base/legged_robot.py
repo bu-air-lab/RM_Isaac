@@ -53,7 +53,7 @@ from legged_gym.utils.helpers import class_to_dict
 from .legged_robot_config import LeggedRobotCfg
 
 class LeggedRobot(BaseRMTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, gait, experiment_type):
+    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless, gait, experiment_type, seed):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -70,6 +70,7 @@ class LeggedRobot(BaseRMTask):
         self.sim_params = sim_params
         self.gait=gait
         self.experiment_type = experiment_type
+        self.seed = seed
         if(self.experiment_type not in ['rm', 'naive', 'naive3T', 'augmented', 'noGait']):
             print("Experiment type doesn't exist")
             exit()
@@ -361,7 +362,7 @@ class LeggedRobot(BaseRMTask):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
 
-        #Needed to get foot coordinates for RM transition eval
+        #Needed to get foot coordinates to terminate environments when foot is too high
         self.gym.refresh_rigid_body_state_tensor(self.sim)
 
 
@@ -376,10 +377,9 @@ class LeggedRobot(BaseRMTask):
 
         self._post_physics_step_callback()
 
-        #Reset rm_iters if extraneous foot contact is made
+        #Reset rm_iters if extraneous foot contacts are made
         #This must be done before reward computation
-        #extraneous_contact_envs = self.check_extraneous_contacts()
-        #print(self.rm_iters)
+        extraneous_contact_envs = self.check_extraneous_contacts()
 
         # compute observations, rewards, resets, ...
         self.check_termination()
@@ -393,15 +393,22 @@ class LeggedRobot(BaseRMTask):
         info = {'computed_reward': self.rew_buf}
         new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info, self.experiment_type)
 
+        #Remove RM bonus after some number of iterations
+        #This encourages the robot to move smoother and better minimize energy, while likely maintaining its already learned gait
+        #if(self.common_step_counter / 24 >= self.cfg.env.remove_bonus_iter):
+        #    self.reward_machine.set_bonus(10)
+
         #Add 1 to rm_iters per each env. 
         #Reset rm_iters for envs when RM state changes.
         #Reset rm_iters if extraneous contact is made
         changed_envs = (self.current_rm_states_buf - new_rm_states).nonzero()
         self.rm_iters[:] += 1
         self.rm_iters[changed_envs] = 0
-        #self.rm_iters[extraneous_contact_envs] = 0
-        #self.extraneous_contact_buffer[changed_envs, :] = 0
-        #self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
+        self.rm_iters[extraneous_contact_envs] = 0
+
+        #Reset extraneous_contact_buffer for environments that had pose transition or reset
+        self.extraneous_contact_buffer[changed_envs, :] = 0
+        self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
 
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
@@ -450,6 +457,12 @@ class LeggedRobot(BaseRMTask):
         self.reset_buf[self.max_torque_exceeded_envs] = True
         self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
 
+        #Terminate if feet are too high after 15 episode steps
+        feet_z_positions = self.link_positions[:, self.feet_indices, 2]
+        large_foot_clearance_envs = torch.unique((feet_z_positions - self.cfg.env.max_foot_clearance > self.measured_heights).nonzero()[:,0])
+        past_init_envs = (self.episode_length_buf > 15).nonzero()
+        large_foot_clearance_termination_envs = self.intersection(large_foot_clearance_envs, past_init_envs)
+        self.reset_buf[large_foot_clearance_termination_envs] = True
 
 
     def reset_idx(self, env_ids):
@@ -471,14 +484,15 @@ class LeggedRobot(BaseRMTask):
         if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length==0):
             self.update_command_curriculum(env_ids)
         #Update action scale curriculum
-        if self.cfg.control.curriculum and (self.common_step_counter % self.max_episode_length==0):
-            self._update_action_scale_curriculum(env_ids)
+        #if self.cfg.control.curriculum and (self.common_step_counter % self.max_episode_length==0):
+        #    self._update_action_scale_curriculum(env_ids)
         #Update joint acceleration penalty curriculum
-        if self.cfg.rewards.dof_acc_curriculum and (self.common_step_counter % self.max_episode_length==0):
-            self._update_dof_acc_curriculum(env_ids)
+        #if self.cfg.rewards.dof_acc_curriculum and (self.common_step_counter % self.max_episode_length==0):
+        #    self._update_dof_acc_curriculum(env_ids)
         #Update rm_iters curriculum
-        #if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % self.max_episode_length==0):
-        #    self._update_rm_iters_curriculum(env_ids)
+
+        if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % 100 == 0):
+            self._update_rm_iters_curriculum(env_ids)
         
         # reset robot states
         self._reset_dofs(env_ids)
@@ -563,12 +577,12 @@ class LeggedRobot(BaseRMTask):
             self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                     #self.base_ang_vel  * self.obs_scales.ang_vel,
                     #self.projected_gravity,
-                    #self.commands[:, :3] * self.commands_scale,
+                    self.commands[:, :3] * self.commands_scale,
                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                     self.dof_vel * self.obs_scales.dof_vel,
                     self.actions,
                     foot_contacts,
-                    self.rm_iters.unsqueeze(1)#,
+                    self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale#,
                     #self.max_rm_iters
                     ),dim=-1)
 
@@ -605,9 +619,9 @@ class LeggedRobot(BaseRMTask):
                                 ),dim=-1)
 
         # add perceptive inputs if not blind
-        if self.cfg.terrain.measure_heights:
-            heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
-            self.obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
+        #if self.cfg.terrain.measure_heights:
+        #    heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
+        #    self.obs_buf = torch.cat((self.obs_buf, heights), dim=-1)
         # add noise if needed
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec
@@ -867,10 +881,21 @@ class LeggedRobot(BaseRMTask):
         if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
             self.reward_scales['dof_acc'] -= (1e-7 * self.dt)
 
-    """def _update_rm_iters_curriculum(self, env_ids):
-        # If the tracking reward is above 80% of the maximum, decrease the target gait frequency by 1 env step
-        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
-            self.cfg.env.rm_iters += 1"""
+    def _update_rm_iters_curriculum(self, env_ids):
+
+        # If the tracking reward is above 75% of the maximum, decrease the target gait frequency by 1 env step
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.75 * self.reward_scales["tracking_lin_vel"]:
+
+            if(self.cfg.env.rm_iters < self.cfg.env.max_rm_iters):
+
+                self.cfg.env.rm_iters += 1
+
+                #Keep note of when rm_iters is updated
+                log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', 'bounding_a1')
+                log_dir = os.path.join(log_root, self.experiment_type + '_' + self.gait + str(self.seed))
+                file = open(log_dir + '/rm_iters.txt', "a")
+                file.write('\n' + str(self.common_step_counter) + ' ' + str(self.cfg.env.rm_iters))
+                file.close()
             
 
     def _get_noise_scale_vec(self, cfg):
@@ -904,16 +929,18 @@ class LeggedRobot(BaseRMTask):
         noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[27:40] = 0. # previous actions + RM state"""
 
+        """noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
+        noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
+        noise_vec[6:9] = 0. # commands
+        noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
+        noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
+        noise_vec[33:46] = 0. # previous actions + RM state"""
+
         noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
         noise_vec[3:6] = 0. # commands
         noise_vec[6:18] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[18:30] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[30:43] = 0. # previous actions + RM state
-
-        """noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
-        noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[27:40] = 0. # previous actions + RM state"""
 
         if self.cfg.terrain.measure_heights:
             noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
@@ -1374,4 +1401,3 @@ class LeggedRobot(BaseRMTask):
         # penalize high contact forces
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
 
-    

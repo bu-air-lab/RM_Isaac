@@ -52,4 +52,8 @@ class VecRewardMachine:
 
         return next_states, self.rm_rews
 
+    #Bonus can be changed during training
+    def set_bonus(self, bonus):
+        self.bonus = bonus
+
 

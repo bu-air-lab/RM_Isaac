@@ -107,7 +107,8 @@ class TaskRegistry():
                             sim_device=args.sim_device,
                             headless=args.headless,
                             gait=args.gait,
-                            experiment_type=args.experiment)
+                            experiment_type=args.experiment,
+                            seed=args.seed)
         return env, env_cfg
 
 

@@ -40,7 +40,7 @@ env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
 obs = env.get_observations()
 
 #Deploy every policy (saved every 50 iterations)
-for policy_iter in range(0, 1001, 50):
+for policy_iter in range(0, 3001, 50):
 
     # load policy
     train_cfg.runner.resume = True
