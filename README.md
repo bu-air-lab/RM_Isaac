@@ -19,7 +19,3 @@ python3 legged_gym/scripts/train.py --task=a1_bounding --gait=walk --experiment=
 ```
 python3 legged_gym/scripts/play.py --task=a1_bounding --gait=walk --experiment=rm
 ```
-
-# TODO
-
-Compute next RM states in parallel, to keep all computations on the GPU

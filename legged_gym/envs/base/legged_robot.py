@@ -125,8 +125,11 @@ class LeggedRobot(BaseRMTask):
                 self.past_dof_pos.append(self.default_dof_pos[0].repeat(self.num_envs, 1))
                 self.past_dof_vel.append(torch.zeros(self.num_envs, 12, device=self.device, dtype=torch.float))
 
-        #self.action_scale = torch.tensor([0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]).to(self.device)
-        self.action_scale = torch.tensor([0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25, 0.02, 0.25, 0.25]).to(self.device)
+        hip_scale = 0.02
+        self.action_scale = torch.tensor([hip_scale, 0.25, 0.25, 
+                                        hip_scale, 0.25, 0.25, 
+                                        hip_scale, 0.25, 0.25, 
+                                        hip_scale, 0.25, 0.25]).to(self.device)
         self.max_torque = 35.5
         self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
 
@@ -352,6 +355,9 @@ class LeggedRobot(BaseRMTask):
         self.obs_buf = torch.clip(self.obs_buf, -clip_obs, clip_obs)
         if self.privileged_obs_buf is not None:
             self.privileged_obs_buf = torch.clip(self.privileged_obs_buf, -clip_obs, clip_obs)
+
+        self.extras['reward_components'] = self.reward_components
+
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def post_physics_step(self):
@@ -464,6 +470,28 @@ class LeggedRobot(BaseRMTask):
         large_foot_clearance_termination_envs = self.intersection(large_foot_clearance_envs, past_init_envs)
         self.reset_buf[large_foot_clearance_termination_envs] = True
 
+        #Terminate if action difference is too large
+        action_rates = self._reward_action_rate()
+        #print(action_rates[0])
+        excessive_action_rate_envs = (action_rates > self.cfg.env.max_action_rate).nonzero()
+        self.reset_buf[excessive_action_rate_envs] = True
+
+        #Terminate if feet are too close together
+        feet_xy_positions = self.link_positions[:, self.feet_indices, 0:2]
+        front_feet_xy_positions = feet_xy_positions[:, :2]
+        back_feet_xy_positions = feet_xy_positions[:, 2:]
+
+        front_feet_distances = torch.sqrt((front_feet_xy_positions[:, 0, 0] - front_feet_xy_positions[:, 1, 0])**2
+                                            + (front_feet_xy_positions[:, 0, 1] - front_feet_xy_positions[:, 1, 1])**2)
+
+        back_feet_distances = torch.sqrt((back_feet_xy_positions[:, 0, 0] - back_feet_xy_positions[:, 1, 0])**2
+                                            + (back_feet_xy_positions[:, 0, 1] - back_feet_xy_positions[:, 1, 1])**2)
+
+        front_feet_too_close_envs = (front_feet_distances < self.cfg.env.min_feet_distance).nonzero()
+        back_feet_too_close_envs = (back_feet_distances < self.cfg.env.min_feet_distance).nonzero()
+        self.reset_buf[front_feet_too_close_envs] = True
+        self.reset_buf[back_feet_too_close_envs] = True
+
 
     def reset_idx(self, env_ids):
         """ Reset some environments.
@@ -538,6 +566,7 @@ class LeggedRobot(BaseRMTask):
             rew = self.reward_functions[i]() * self.reward_scales[name]
             self.rew_buf += rew
             self.episode_sums[name] += rew
+            self.reward_components[name] = rew
 
         if self.cfg.rewards.only_positive_rewards:
             self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
@@ -1049,6 +1078,9 @@ class LeggedRobot(BaseRMTask):
 
         # reward episode sums
         self.episode_sums = {name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+                             for name in self.reward_scales.keys()}
+
+        self.reward_components = {name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
                              for name in self.reward_scales.keys()}
 
     def _create_ground_plane(self):

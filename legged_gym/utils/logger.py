@@ -62,6 +62,20 @@ class Logger:
         self.plot_process = Process(target=self._plot)
         self.plot_process.start()
 
+
+    def print_rewards(self):
+        print("Average rewards per second:")
+        for key, values in self.rew_log.items():
+            mean = np.sum(np.array(values)) / self.num_episodes
+            print(f" - {key}: {mean}")
+        print(f"Total number of episodes: {self.num_episodes}")
+
+    def return_rewards(self):
+        rewards = {}
+        for key, values in self.rew_log.items():
+            rewards[key] = np.sum(np.array(values)) / self.num_episodes
+        return rewards
+
     def _plot(self):
         nb_rows = 3
         nb_cols = 3
@@ -124,13 +138,6 @@ class Logger:
         a.set(xlabel='time [s]', ylabel='Joint Torque [Nm]', title='Torque')
         a.legend()
         plt.show()
-
-    def print_rewards(self):
-        print("Average rewards per second:")
-        for key, values in self.rew_log.items():
-            mean = np.sum(np.array(values)) / self.num_episodes
-            print(f" - {key}: {mean}")
-        print(f"Total number of episodes: {self.num_episodes}")
     
     def __del__(self):
         if self.plot_process is not None:

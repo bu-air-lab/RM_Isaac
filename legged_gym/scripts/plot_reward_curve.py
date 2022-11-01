@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 args = get_args()
 
 #experiments = ['naive', 'naive3T', 'augmented', 'rm']
-experiments = ['augmented', 'rm']
+#experiments = ['augmented', 'rm']
+experiments = ['rm']
 
 all_rewards = []
 all_stds = []
@@ -57,7 +58,11 @@ for experiment in experiments:
 all_stds = np.array(all_stds)
 
 fig, ax = plt.subplots()
-time = [i for i in range(0, len(all_rewards[0]))]
+
+#Each iter has 24*4096 steps. We plot on x-axis every 50 iters
+#So a new point on x-axis correspond to 24*4096*50 = 4,915,200 more training iters
+#Lets call it 5 million
+time = [i*5 for i in range(0, len(all_rewards[0]))]
 
 for i, experiment in enumerate(experiments):
 
@@ -74,32 +79,7 @@ for i, experiment in enumerate(experiments):
 
 ax.legend()
 
-plt.xlabel('Training Iterations')
+plt.xlabel('Training Steps (in millions)')
 plt.ylabel('Reward')
+plt.title('Reward Curves for ' + args.gait + ' Gait')
 plt.savefig("plot_" + args.gait + ".pdf", bbox_inches='tight')
-
-
-"""for i,method in enumerate(methods):
-
-    std_below = []
-    std_above = []
-
-    for t, reward in enumerate(rewards[i]):
-        std_below.append(reward - reward_stds[i,t])
-        std_above.append(reward + reward_stds[i,t])
-
-
-    ax.plot(time, rewards[i], label=l)
-    ax.fill_between(time, std_below, std_above, alpha=.1)
-
-ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.2), ncol=3, fontsize=13)
-
-filename = version + '_reward_plot.pdf'
-
-plt.xlabel('Training Iterations (in millions)')
-plt.ylabel('Average Reward')
-
-plt.yticks([x*100000 for x in [-1,0,1,2,3,4]], [-1, 0, 1, 2, 3, 4])
-plt.xticks([x*10 for x in range(6)], [0, 1, 2, 3, 4, 5])
-
-plt.savefig(filename, bbox_inches='tight')"""
