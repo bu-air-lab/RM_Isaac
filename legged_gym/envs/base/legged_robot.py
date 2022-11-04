@@ -68,7 +68,7 @@ class LeggedRobot(BaseRMTask):
         """
         self.cfg = cfg
         self.sim_params = sim_params
-        self.gait=gait
+        self.gait = gait
         self.experiment_type = experiment_type
         self.seed = seed
         if(self.experiment_type not in ['rm', 'naive', 'naive3T', 'augmented', 'noGait']):
@@ -78,7 +78,7 @@ class LeggedRobot(BaseRMTask):
         self.debug_viz = False
         self.init_done = False
         self._parse_cfg(self.cfg)
-        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, self.experiment_type)
+        super().__init__(self.cfg, sim_params, physics_engine, sim_device, headless, self.experiment_type, self.gait)
 
         if not self.headless:
             self.set_camera(self.cfg.viewer.pos, self.cfg.viewer.lookat)
@@ -86,6 +86,7 @@ class LeggedRobot(BaseRMTask):
         self._prepare_reward_function()
 
         #Initialize masks needed for evaluation of propositional symbols truth values
+        #TODO: There's probably a cleaner way of doing this
         #Foot order: FL, FR, RL, RR
         self.FL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
         self.FL_RR_mask[:,0] = 1
@@ -110,6 +111,38 @@ class LeggedRobot(BaseRMTask):
         self.RL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
         self.RL_RR_mask[:,2] = 1
         self.RL_RR_mask[:,3] = 1
+
+        self.FL_FR_RL_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_FR_RL_mask[:,0] = 1
+        self.FL_FR_RL_mask[:,1] = 1
+        self.FL_FR_RL_mask[:,2] = 1
+
+        self.FL_FR_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_FR_RR_mask[:,0] = 1
+        self.FL_FR_RR_mask[:,1] = 1
+        self.FL_FR_RR_mask[:,3] = 1
+
+        self.FL_RL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_RL_RR_mask[:,0] = 1
+        self.FL_RL_RR_mask[:,2] = 1
+        self.FL_RL_RR_mask[:,3] = 1
+
+        self.FR_RL_RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FR_RL_RR_mask[:,1] = 1
+        self.FR_RL_RR_mask[:,2] = 1
+        self.FR_RL_RR_mask[:,3] = 1
+
+        self.FL_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FL_mask[:,0] = 1
+
+        self.FR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.FR_mask[:,1] = 1
+
+        self.RL_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.RL_mask[:,2] = 1
+
+        self.RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.RR_mask[:,3] = 1
 
         #Store the past 2 actions, dof_pos, and dof_vel
         #Used for observation space in naive3T experiments
@@ -153,9 +186,11 @@ class LeggedRobot(BaseRMTask):
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         foot_contacts = torch.logical_or(contact, self.last_contacts)
 
-        #Environments of state q0 and q1
+        #Environment ids of each state
         q0_envs = (self.current_rm_states_buf == 0).nonzero()
         q1_envs = (self.current_rm_states_buf == 1).nonzero()        
+        q2_envs = (self.current_rm_states_buf == 2).nonzero()
+        q3_envs = (self.current_rm_states_buf == 3).nonzero()
 
         if(self.gait == 'trot'):
 
@@ -297,13 +332,184 @@ class LeggedRobot(BaseRMTask):
             q1_q0_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
+        elif(self.gait == 'canter'):
+
+            #Filter out environments based on which have exclusively FL/FR/RL feet contacts or exclusively RR contacts
+            FL_FR_RL_masked = foot_contacts * self.FL_FR_RL_mask
+            RR_masked = foot_contacts * self.RR_mask
+
+            #Find environments which have FL/FR/RL contacts
+            FL_FR_RL_contacts = (torch.sum(FL_FR_RL_masked, dim=1) > 0).nonzero()
+            RR_contacts = (torch.sum(RR_masked, dim=1) == 1).nonzero()
+
+            #Remove FL_FR_RL_contacts from RR_contacts
+            matching_contacts = self.intersection(FL_FR_RL_contacts, RR_contacts)
+
+            for item in matching_contacts:
+                RR_contacts = RR_contacts[RR_contacts != item[0]]
+
+            #Check if we should transition from q0 -> q1
+            #Only do so if self.rm_iters >= 8
+            RR_contacts_q0 = self.intersection(RR_contacts, q0_envs)
+
+            #Find envs from RR_contacts_q0 where self.rm_iters >= 8
+            #These environments can now transition to q1
+            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+
+            #Filter out environments based on which have exclusively FR/RL feet contacts or exclusively FL/RR contacts
+            FR_RL_masked = foot_contacts * self.FR_RL_mask
+            FL_RR_masked = foot_contacts * self.FL_RR_mask
+
+            #Find environments which have FL/FR/RL contacts
+            FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
+            FL_RR_contacts = (torch.sum(FL_RR_masked, dim=1) > 0).nonzero()
+
+            #Remove FL_RR_contacts from FR_RL_contacts
+            matching_contacts = self.intersection(FR_RL_contacts, FL_RR_contacts)
+
+            for item in matching_contacts:
+                FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
+
+            #Check if we should transition from q1 -> q2
+            #Only do so if self.rm_iters >= 8
+            FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
+
+            #Find envs from FR_RL_contacts_q1 where self.rm_iters >= 8
+            #These environments can now transition to q2
+            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+
+            #Filter out environments based on which have exclusively FR/RL/RR feet contacts or exclusively FL contacts
+            FR_RL_RR_masked = foot_contacts * self.FR_RL_RR_mask
+            FL_masked = foot_contacts * self.FL_mask
+
+            #Find environments which have FR/RL/RR contacts
+            FR_RL_RR_contacts = (torch.sum(FR_RL_RR_masked, dim=1) > 0).nonzero()
+            FL_contacts = (torch.sum(FL_masked, dim=1) == 1).nonzero()
+
+            #Remove FL_FR_RL_contacts from RR_contacts
+            matching_contacts = self.intersection(FR_RL_RR_contacts, FL_contacts)
+
+            for item in matching_contacts:
+                FL_contacts = FL_contacts[FL_contacts != item[0]]
+
+            #Check if we should transition from q2 -> q0
+            #Only do so if self.rm_iters >= 8
+            FL_contacts_q2 = self.intersection(FL_contacts, q2_envs)
+
+            #Find envs from FL_contacts_q2 where self.rm_iters >= 8
+            #These environments can now transition to q0
+            q2_q0_envs = self.intersection(FL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q2_q0_envs] = 3
+
+        elif(self.gait == 'walk'):
+
+            #Filter out environments based on which have exclusively FR/RL/RR feet contacts or exclusively FL contacts
+            FR_RL_RR_masked = foot_contacts * self.FR_RL_RR_mask
+            FL_masked = foot_contacts * self.FL_mask
+
+            #Find environments which have FR/RL/RR contacts
+            FR_RL_RR_contacts = (torch.sum(FR_RL_RR_masked, dim=1) == 3).nonzero()
+            FL_contacts = (torch.sum(FL_masked, dim=1) > 0).nonzero()
+
+            #Remove FL_contacts from FR_RL_RR_contacts
+            matching_contacts = self.intersection(FR_RL_RR_contacts, FL_contacts)
+
+            for item in matching_contacts:
+                FR_RL_RR_contacts = FR_RL_RR_contacts[FR_RL_RR_contacts != item[0]]
+
+            #Check if we should transition from q0 -> q1
+            #Only do so if self.rm_iters >= 8
+            FR_RL_RR_contacts_q0 = self.intersection(FR_RL_RR_contacts, q0_envs)
+
+            #Find envs from FR_RL_RR_contacts_q0 where self.rm_iters >= 8
+            #These environments can now transition to q1
+            q0_q1_envs = self.intersection(FR_RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+
+            #Filter out environments based on which have exclusively FL/FR/RL feet contacts or exclusively RR contacts
+            FL_FR_RL_masked = foot_contacts * self.FL_FR_RL_mask
+            RR_masked = foot_contacts * self.RR_mask
+
+            #Find environments which have FR/RL/RR contacts
+            FL_FR_RL_contacts = (torch.sum(FL_FR_RL_masked, dim=1) == 3).nonzero()
+            RR_contacts = (torch.sum(RR_masked, dim=1) > 0).nonzero()
+
+            #Remove FR_contacts from FL_FR_RL_contacts
+            matching_contacts = self.intersection(FL_FR_RL_contacts, RR_contacts)
+
+            for item in matching_contacts:
+                FL_FR_RL_contacts = FL_FR_RL_contacts[FL_FR_RL_contacts != item[0]]
+
+            #Check if we should transition from q1 -> q2
+            #Only do so if self.rm_iters >= 8
+            FL_FR_RL_contacts_q1 = self.intersection(FL_FR_RL_contacts, q1_envs)
+
+            #Find envs from FL_FR_RL_contacts_q1 where self.rm_iters >= 8
+            #These environments can now transition to q2
+            q1_q2_envs = self.intersection(FL_FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+
+            #Filter out environments based on which have exclusively FL/RL/RR feet contacts or exclusively FR contacts
+            FL_RL_RR_masked = foot_contacts * self.FL_RL_RR_mask
+            FR_masked = foot_contacts * self.FR_mask
+
+            #Find environments which have FL/RL/RR contacts
+            FL_RL_RR_contacts = (torch.sum(FL_RL_RR_masked, dim=1) == 3).nonzero()
+            FR_contacts = (torch.sum(FR_masked, dim=1) > 0).nonzero()
+
+            #Remove FR_contacts from FL_RL_RR_contacts
+            matching_contacts = self.intersection(FL_RL_RR_contacts, FR_contacts)
+
+            for item in matching_contacts:
+                FL_RL_RR_contacts = FL_RL_RR_contacts[FL_RL_RR_contacts != item[0]]
+
+            #Check if we should transition from q2 -> q3
+            #Only do so if self.rm_iters >= 8
+            FL_RL_RR_contacts_q2 = self.intersection(FL_RL_RR_contacts, q2_envs)
+
+            #Find envs from FL_RL_RR_contacts_q2 where self.rm_iters >= 8
+            #These environments can now transition to q3
+            q2_q3_envs = self.intersection(FL_RL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q2_q3_envs] = 3
+
+
+            #Filter out environments based on which have exclusively FL/FR/RR feet contacts or exclusively RL contacts
+            FL_FR_RR_masked = foot_contacts * self.FL_FR_RR_mask
+            RL_masked = foot_contacts * self.RL_mask
+
+            #Find environments which have FL/RL/RR contacts
+            FL_FR_RR_contacts = (torch.sum(FL_FR_RR_masked, dim=1) == 3).nonzero()
+            RL_contacts = (torch.sum(RL_masked, dim=1) > 0).nonzero()
+
+            #Remove RL_contacts from FL_FR_RR_contacts
+            matching_contacts = self.intersection(FL_FR_RR_contacts, RL_contacts)
+
+            for item in matching_contacts:
+                FL_FR_RR_contacts = FL_FR_RR_contacts[FL_FR_RR_contacts != item[0]]
+
+            #Check if we should transition from q3 -> q0
+            #Only do so if self.rm_iters >= 8
+            FL_FR_RR_contacts_q3 = self.intersection(FL_FR_RR_contacts, q3_envs)
+
+            #Find envs from FL_FR_RR_contacts_q3 where self.rm_iters >= 8
+            #These environments can now transition to q0
+            q3_q0_envs = self.intersection(FL_FR_RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q3_q0_envs] = 4
+
+
         return prop_symbols
 
     #Return environments which have extraneous foot contacts
     #This means some foot changed contact values twice before a pose transition
     #self.extraneous_contact_buffer is reset whenever rm_iters is reset.
     #So if self.extraneous_contact_buffer ever contains a 2, reset that environment
-    def check_extraneous_contacts(self):
+    """def check_extraneous_contacts(self):
 
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
@@ -317,7 +523,7 @@ class LeggedRobot(BaseRMTask):
         #Extraneous contact envs are the ones which have any foot changing contact values twice
         extraneous_envs = (self.extraneous_contact_buffer == 2).nonzero()[:,0]
 
-        return extraneous_envs
+        return extraneous_envs"""
 
 
     def step(self, actions):
@@ -385,7 +591,7 @@ class LeggedRobot(BaseRMTask):
 
         #Reset rm_iters if extraneous foot contacts are made
         #This must be done before reward computation
-        extraneous_contact_envs = self.check_extraneous_contacts()
+        #extraneous_contact_envs = self.check_extraneous_contacts()
 
         # compute observations, rewards, resets, ...
         self.check_termination()
@@ -397,7 +603,11 @@ class LeggedRobot(BaseRMTask):
         #Update RM states, return reward from RM
         true_props = self.get_events()
         info = {'computed_reward': self.rew_buf}
-        new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, true_props, info, self.experiment_type)
+        new_rm_states, rm_rew = self.reward_machine.step(self.current_rm_states_buf, 
+                                                        true_props, 
+                                                        info, 
+                                                        self.experiment_type,
+                                                        self.gait)
 
         #Remove RM bonus after some number of iterations
         #This encourages the robot to move smoother and better minimize energy, while likely maintaining its already learned gait
@@ -410,11 +620,14 @@ class LeggedRobot(BaseRMTask):
         changed_envs = (self.current_rm_states_buf - new_rm_states).nonzero()
         self.rm_iters[:] += 1
         self.rm_iters[changed_envs] = 0
-        self.rm_iters[extraneous_contact_envs] = 0
+
+        #Only reset on extraneous contact before final gait frequency reached
+        #if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):
+        #    self.rm_iters[extraneous_contact_envs] = 0
 
         #Reset extraneous_contact_buffer for environments that had pose transition or reset
-        self.extraneous_contact_buffer[changed_envs, :] = 0
-        self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
+        #self.extraneous_contact_buffer[changed_envs, :] = 0
+        #self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
 
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
@@ -463,34 +676,37 @@ class LeggedRobot(BaseRMTask):
         self.reset_buf[self.max_torque_exceeded_envs] = True
         self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
 
-        #Terminate if feet are too high after 15 episode steps
-        feet_z_positions = self.link_positions[:, self.feet_indices, 2]
-        large_foot_clearance_envs = torch.unique((feet_z_positions - self.cfg.env.max_foot_clearance > self.measured_heights).nonzero()[:,0])
-        past_init_envs = (self.episode_length_buf > 15).nonzero()
-        large_foot_clearance_termination_envs = self.intersection(large_foot_clearance_envs, past_init_envs)
-        self.reset_buf[large_foot_clearance_termination_envs] = True
-
         #Terminate if action difference is too large
         action_rates = self._reward_action_rate()
         #print(action_rates[0])
         excessive_action_rate_envs = (action_rates > self.cfg.env.max_action_rate).nonzero()
         self.reset_buf[excessive_action_rate_envs] = True
 
-        #Terminate if feet are too close together
-        feet_xy_positions = self.link_positions[:, self.feet_indices, 0:2]
-        front_feet_xy_positions = feet_xy_positions[:, :2]
-        back_feet_xy_positions = feet_xy_positions[:, 2:]
+        #Restrict feet positions only before final gait frequency reached
+        """if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):
 
-        front_feet_distances = torch.sqrt((front_feet_xy_positions[:, 0, 0] - front_feet_xy_positions[:, 1, 0])**2
-                                            + (front_feet_xy_positions[:, 0, 1] - front_feet_xy_positions[:, 1, 1])**2)
+            #Terminate if feet are too high after 15 episode steps
+            feet_z_positions = self.link_positions[:, self.feet_indices, 2]
+            large_foot_clearance_envs = torch.unique((feet_z_positions - self.cfg.env.max_foot_clearance > self.measured_heights).nonzero()[:,0])
+            past_init_envs = (self.episode_length_buf > 15).nonzero()
+            large_foot_clearance_termination_envs = self.intersection(large_foot_clearance_envs, past_init_envs)
+            self.reset_buf[large_foot_clearance_termination_envs] = True
 
-        back_feet_distances = torch.sqrt((back_feet_xy_positions[:, 0, 0] - back_feet_xy_positions[:, 1, 0])**2
-                                            + (back_feet_xy_positions[:, 0, 1] - back_feet_xy_positions[:, 1, 1])**2)
+            #Terminate if feet are too close together
+            feet_xy_positions = self.link_positions[:, self.feet_indices, 0:2]
+            front_feet_xy_positions = feet_xy_positions[:, :2]
+            back_feet_xy_positions = feet_xy_positions[:, 2:]
 
-        front_feet_too_close_envs = (front_feet_distances < self.cfg.env.min_feet_distance).nonzero()
-        back_feet_too_close_envs = (back_feet_distances < self.cfg.env.min_feet_distance).nonzero()
-        self.reset_buf[front_feet_too_close_envs] = True
-        self.reset_buf[back_feet_too_close_envs] = True
+            front_feet_distances = torch.sqrt((front_feet_xy_positions[:, 0, 0] - front_feet_xy_positions[:, 1, 0])**2
+                                                + (front_feet_xy_positions[:, 0, 1] - front_feet_xy_positions[:, 1, 1])**2)
+
+            back_feet_distances = torch.sqrt((back_feet_xy_positions[:, 0, 0] - back_feet_xy_positions[:, 1, 0])**2
+                                                + (back_feet_xy_positions[:, 0, 1] - back_feet_xy_positions[:, 1, 1])**2)
+
+            front_feet_too_close_envs = (front_feet_distances < self.cfg.env.min_feet_distance).nonzero()
+            back_feet_too_close_envs = (back_feet_distances < self.cfg.env.min_feet_distance).nonzero()
+            self.reset_buf[front_feet_too_close_envs] = True
+            self.reset_buf[back_feet_too_close_envs] = True"""
 
 
     def reset_idx(self, env_ids):
@@ -552,7 +768,7 @@ class LeggedRobot(BaseRMTask):
         #reset RMs indexed by env_ids
         self.current_rm_states_buf[env_ids] = 0
         self.rm_iters[env_ids] = 0
-        self.extraneous_contact_buffer[env_ids, :] = 0
+        #self.extraneous_contact_buffer[env_ids, :] = 0
 
     
     def compute_reward(self):

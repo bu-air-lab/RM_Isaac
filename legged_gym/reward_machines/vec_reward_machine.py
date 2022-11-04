@@ -14,17 +14,54 @@ class VecRewardMachine:
         self.bonus=bonus
 
 
-    def get_next_states(self, current_states, true_props):
+    def get_next_states(self, current_states, true_props, gait):
 
         next_states = torch.clone(current_states)
 
-        #Update from q0 -> q1 if true_props = 1
-        q0_q1_indicies = (true_props == 1).nonzero()
-        next_states[q0_q1_indicies] = 1
+        if(gait == 'trot' or gait == 'pace' or gait == 'bound'):
 
-        #Update from q1 -> q0 if true_props = 2
-        q1_q0_indicies = (true_props == 2).nonzero()
-        next_states[q1_q0_indicies] = 0
+            #Update from q0 -> q1 if true_props = 1
+            q0_q1_indicies = (true_props == 1).nonzero()
+            next_states[q0_q1_indicies] = 1
+
+            #Update from q1 -> q0 if true_props = 2
+            q1_q0_indicies = (true_props == 2).nonzero()
+            next_states[q1_q0_indicies] = 0
+
+        #canter gait is 3-state RM
+        elif(gait == 'canter'):
+
+            #Update from q0 -> q1 if true_props = 1
+            q0_q1_indicies = (true_props == 1).nonzero()
+            next_states[q0_q1_indicies] = 1
+
+            #Update from q1 -> q2 if true_props = 2
+            q1_q2_indicies = (true_props == 2).nonzero()
+            next_states[q1_q2_indicies] = 2
+
+            #Update from q2 -> q3 if true_props = 3
+            q2_q0_indicies = (true_props == 3).nonzero()
+            next_states[q2_q0_indicies] = 0
+
+
+        #Walk gait is 4-state RM
+        else:
+
+            #Update from q0 -> q1 if true_props = 1
+            q0_q1_indicies = (true_props == 1).nonzero()
+            next_states[q0_q1_indicies] = 1
+
+            #Update from q1 -> q2 if true_props = 2
+            q1_q2_indicies = (true_props == 2).nonzero()
+            next_states[q1_q2_indicies] = 2
+
+            #Update from q2 -> q3 if true_props = 3
+            q2_q3_indicies = (true_props == 3).nonzero()
+            next_states[q2_q3_indicies] = 3
+
+            #Update from q3 -> q0 if true_props = 4
+            q3_q0_indicies = (true_props == 4).nonzero()
+            next_states[q3_q0_indicies] = 0
 
         return next_states
 
@@ -39,13 +76,13 @@ class VecRewardMachine:
             self.rm_rews[bonus_envs] *= self.bonus
 
 
-    def step(self, current_states, true_props, s_info, experiment_type):
+    def step(self, current_states, true_props, s_info, experiment_type, gait):
         """
         Emulates a step on the reward machines from current_states when observing *true_props*.
         """
 
         # Computing the next RM state per env
-        next_states = self.get_next_states(current_states, true_props)
+        next_states = self.get_next_states(current_states, true_props, gait)
 
         #Update the reward
         self.get_reward(current_states, next_states, s_info, experiment_type)

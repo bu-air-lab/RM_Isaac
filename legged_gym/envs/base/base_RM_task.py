@@ -41,7 +41,7 @@ from legged_gym.reward_machines.vec_reward_machine import VecRewardMachine
 # Base class for RL tasks
 class BaseRMTask():
 
-    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, experiment_type):
+    def __init__(self, cfg, sim_params, physics_engine, sim_device, headless, experiment_type, gait):
 
         self.gym = gymapi.acquire_gym()
 
@@ -82,6 +82,11 @@ class BaseRMTask():
         self.reward_machine = VecRewardMachine(self.num_envs, self.device)
         self.num_rm_states = 2
 
+        if(gait == 'walk'):
+            self.num_rm_states = 4
+        if(gait == 'canter'):
+            self.num_rm_states = 3
+
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
         elif(experiment_type == 'augmented'):
@@ -96,7 +101,7 @@ class BaseRMTask():
         self.obs_buf = torch.zeros(self.num_envs, self.num_obs, device=self.device, dtype=torch.float)
         self.current_rm_states_buf  = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.rm_iters = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
-        self.extraneous_contact_buffer = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        #self.extraneous_contact_buffer = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
         self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)

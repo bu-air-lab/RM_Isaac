@@ -24,13 +24,13 @@ class A1BoundingCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 42
 
-        rm_iters = 4
-        rm_iters_curriculum = True
-        max_rm_iters = 10
+        rm_iters = 6
+        rm_iters_curriculum = False
+        #max_rm_iters = 8
 
-        max_foot_clearance = 0.25
+        #max_foot_clearance = 0.25
         max_action_rate = 100
-        min_feet_distance = 0.15
+        #min_feet_distance = 0.15
 
     class commands (LeggedRobotCfg.commands):
         curriculum = False
@@ -43,16 +43,16 @@ class A1BoundingCfg( LeggedRobotCfg ):
             #lin_vel_y = [0, 0]   # min max [m/s]
             #ang_vel_yaw = [0, 0]    # min max [rad/s]
             lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            lin_vel_y = [0, 0]   # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
 
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
         #measure_heights = False
 
-        measure_heights = True
-        measured_points_x = [0.]
-        measured_points_y = [0.]
+        #measure_heights = True
+        #measured_points_x = [0.]
+        #measured_points_y = [0.]
 
         curriculum = True
 
@@ -106,26 +106,37 @@ class A1BoundingCfg( LeggedRobotCfg ):
 
     class domain_rand( LeggedRobotCfg.domain_rand ):
         randomize_friction = True
-        friction_range = [0.3, 1.25] #[0.5, 1.25]
-        randomize_base_mass = True
+        friction_range = [0.5, 1.25]
+        randomize_base_mass = False
         added_mass_range = [-1., 1.]
         push_robots = True
         push_interval_s = 15
         max_push_vel_xy = 1.
 
+    class noise ( LeggedRobotCfg.noise ):
+        add_noise = True
+        noise_level = 1.0 # scales other values
+        class noise_scales ( LeggedRobotCfg.noise.noise_scales ):
+            dof_pos = 0.01
+            dof_vel = 1.5
+            lin_vel = 0.25
+
 class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
+
+
+        policy_class_name = 'ActorCriticRecurrent'
+        #policy_class_name = 'ActorCritic'
+
         run_name = ''
         experiment_name = 'bounding_a1'
-        max_iterations = 2000 # number of policy updates
-        load_run = 'v56_1/rm_pace3' # folder directly containing model files
-        checkpoint = 2000 # saved model iter
+        max_iterations = 1000 # number of policy updates
+        load_run = 'rm_walk1' # folder directly containing model files
+        checkpoint = 800 # saved model iter
 
 
 """
-
-
 
 """

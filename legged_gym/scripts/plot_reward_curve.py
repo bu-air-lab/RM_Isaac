@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 args = get_args()
 
 #experiments = ['naive', 'naive3T', 'augmented', 'rm']
-#experiments = ['augmented', 'rm']
-experiments = ['rm']
+experiments = ['augmented', 'rm']
+#experiments = ['rm']
 
 all_rewards = []
 all_stds = []

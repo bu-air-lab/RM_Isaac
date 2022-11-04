@@ -43,7 +43,7 @@ obs = env.get_observations()
 #logger = Logger(env.dt)
 
 #Deploy every policy (saved every 50 iterations)
-for policy_iter in range(0, 2001, 50):
+for policy_iter in range(0, 1001, 50):
 
     # load policy
     train_cfg.runner.resume = True
@@ -96,11 +96,11 @@ for r in rewards:
 file.write('\n')
 file.close()
 
-file = open(args.experiment + '_' + args.gait + '_reward_components.txt', "a")
-for key in reward_components.keys():
-    file.write(key + ': ')
-    for value in reward_components[key]:
-        file.write(str(value) + ' ')
-    file.write('\n')
-file.write('\n')
-file.close()
+# file = open(args.experiment + '_' + args.gait + '_reward_components.txt', "a")
+# for key in reward_components.keys():
+#     file.write(key + ': ')
+#     for value in reward_components[key]:
+#         file.write(str(value) + ' ')
+#     file.write('\n')
+# file.write('\n')
+# file.close()
