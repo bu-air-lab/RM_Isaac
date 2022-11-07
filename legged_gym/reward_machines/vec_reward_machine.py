@@ -28,23 +28,7 @@ class VecRewardMachine:
             q1_q0_indicies = (true_props == 2).nonzero()
             next_states[q1_q0_indicies] = 0
 
-        #canter gait is 3-state RM
-        elif(gait == 'canter'):
-
-            #Update from q0 -> q1 if true_props = 1
-            q0_q1_indicies = (true_props == 1).nonzero()
-            next_states[q0_q1_indicies] = 1
-
-            #Update from q1 -> q2 if true_props = 2
-            q1_q2_indicies = (true_props == 2).nonzero()
-            next_states[q1_q2_indicies] = 2
-
-            #Update from q2 -> q3 if true_props = 3
-            q2_q0_indicies = (true_props == 3).nonzero()
-            next_states[q2_q0_indicies] = 0
-
-
-        #Walk gait is 4-state RM
+        #walk and canter gaits are both 4-state RMs
         else:
 
             #Update from q0 -> q1 if true_props = 1

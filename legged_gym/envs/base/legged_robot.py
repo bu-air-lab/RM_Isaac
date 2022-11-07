@@ -173,13 +173,34 @@ class LeggedRobot(BaseRMTask):
     def intersection(self, first, second):
         return first[(first.view(1, -1) == second.view(-1, 1)).any(dim=0)]
 
+    #Returns environments that contain specified foot contacts
+    #Input a mask contacts we want, and another mask for contacts we dont
+    def contact_envs(self, foot_contacts, wanted_contacts_mask, unwanted_contacts_mask):
+
+        #Number of feet we want to make contact
+        num_wanted_contacts = torch.sum(wanted_contacts_mask, dim=1)[0].item()
+
+        #Filter out environments based on which have exclusively wanted feet contacts or exclusively unwanted contacts
+        wanted_contacts_masked = foot_contacts*wanted_contacts_mask
+        unwanted_contacts_masked = foot_contacts*unwanted_contacts_mask
+
+        #Find environments which have wanted contacts
+        wanted_contacts = (torch.sum(wanted_contacts_masked, dim=1) == num_wanted_contacts).nonzero()
+        unwanted_contacts = (torch.sum(unwanted_contacts_masked, dim=1) > 0).nonzero()
+
+        #Remove environments with unwanted contacts from environments containing all wanted contacts
+        matching_contacts = self.intersection(wanted_contacts, unwanted_contacts)
+
+        for item in matching_contacts:
+            wanted_contacts = wanted_contacts[wanted_contacts != item[0]]
+
+        return wanted_contacts
+
+
     #Needed for RM implementation
     #Returns the truth value of all propositional symbols, for each environment
     def get_events(self):
 
-        #0 means no symbols true.
-        #1 means transition to q1
-        #2 means transition to q0
         prop_symbols = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
 
         #Foot order: FL, FR, RL, RR
@@ -194,311 +215,117 @@ class LeggedRobot(BaseRMTask):
 
         if(self.gait == 'trot'):
 
-            #Filter out environments based on which have exclusively FL/RR feet contacts or exclusively FR/RL contacts
-            FL_RR_masked = foot_contacts*self.FL_RR_mask
-            FR_RL_masked = foot_contacts*self.FR_RL_mask
-
-            #Find environments which have FL/RR contacts
-            FL_RR_contacts = (torch.sum(FL_RR_masked, dim=1) == 2).nonzero()
-            non_FL_RR_contacts = (torch.sum(FR_RL_masked, dim=1) > 0).nonzero()
-
-            #Remove non_FL_RR_contacts from FL_RR_contacts
-            matching_contacts = self.intersection(FL_RR_contacts, non_FL_RR_contacts)
-
-            for item in matching_contacts:
-                FL_RR_contacts = FL_RR_contacts[FL_RR_contacts != item[0]]
-
-            #Check if we should transition from q0 -> q1
-            #Only do so if self.rm_iters >= 8
+            FL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RR_mask,
+                                                unwanted_contacts_mask = self.FR_RL_mask)
             FL_RR_contacts_q0 = self.intersection(FL_RR_contacts, q0_envs)
-
-            #Find envs from FL_RR_contacts_q0 where self.rm_iters >= 8
-            #These environments can now transition to q1
-            #q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.max_rm_iters.squeeze(1)).nonzero())
             q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
-            #Find environments which have FR/RL contacts
-            FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
-            non_FR_RL_contacts = (torch.sum(FL_RR_masked, dim=1) > 0).nonzero()
-
-            #Remove non_FR_RL_contacts from FR_RL_contacts
-            matching_contacts = self.intersection(FR_RL_contacts, non_FR_RL_contacts)
-
-            for item in matching_contacts:
-                FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
-
-            #Check if we should transition from q1 -> q0
-            #Only do so if self.rm_iters >= 8
+            FR_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FR_RL_mask,
+                                                unwanted_contacts_mask = self.FL_RR_mask)
             FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
-
-            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
-            #These environments can now transition to q0
             q1_q0_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
 
         elif(self.gait == 'pace'):
 
-            #Filter out environments based on which have exclusively FL/RL feet contacts or exclusively FR/RR contacts
-            FL_RL_masked = foot_contacts*self.FL_RL_mask
-            FR_RR_masked = foot_contacts*self.FR_RR_mask
-
-            #Find environments which have FL/RL contacts
-            FL_RL_contacts = (torch.sum(FL_RL_masked, dim=1) == 2).nonzero()
-            non_FL_RL_contacts = (torch.sum(FR_RR_masked, dim=1) > 0).nonzero()
-
-            #Remove non_FL_RL_contacts from FL_RL_contacts
-            matching_contacts = self.intersection(FL_RL_contacts, non_FL_RL_contacts)
-
-            for item in matching_contacts:
-                FL_RL_contacts = FL_RL_contacts[FL_RL_contacts != item[0]]
-
-            #Check if we should transition from q0 -> q1
+            FL_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RL_mask,
+                                                unwanted_contacts_mask = self.FR_RR_mask)
             FL_RL_contacts_q0 = self.intersection(FL_RL_contacts, q0_envs)
-
-            #Find envs from FL_RL_contacts_q0 where self.rm_iters >= 8
-            #These environments can now transition to q1
             q0_q1_envs = self.intersection(FL_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
-            #Find environments which have FR/RR contacts
-            FR_RR_contacts = (torch.sum(FR_RR_masked, dim=1) == 2).nonzero()
-            non_FR_RR_contacts = (torch.sum(FL_RL_masked, dim=1) > 0).nonzero()
 
-            #Remove non_FR_RR_contacts from FR_RR_contacts
-            matching_contacts = self.intersection(FR_RR_contacts, non_FR_RR_contacts)
-
-            for item in matching_contacts:
-                FR_RR_contacts = FR_RR_contacts[FR_RR_contacts != item[0]]
-
-            #Check if we should transition from q1 -> q0
-            #Only do so if self.rm_iters >= 8
+            FR_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FR_RR_mask,
+                                                unwanted_contacts_mask = self.FL_RL_mask)
             FR_RR_contacts_q1 = self.intersection(FR_RR_contacts, q1_envs)
-
-            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
-            #These environments can now transition to q0
             q1_q0_envs = self.intersection(FR_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-
             prop_symbols[q1_q0_envs] = 2
 
 
         elif(self.gait == 'bound'):
 
-            #Filter out environments based on which have exclusively FL/RL feet contacts or exclusively FR/RR contacts
-            FL_FR_masked = foot_contacts*self.FL_FR_mask
-            RL_RR_masked = foot_contacts*self.RL_RR_mask
-
-            #Find environments which have FL/RL contacts
-            FL_FR_contacts = (torch.sum(FL_FR_masked, dim=1) == 2).nonzero()
-            non_FL_FR_contacts = (torch.sum(RL_RR_masked, dim=1) > 0).nonzero()
-
-            #Remove non_FL_FR_contacts from FL_FR_contacts
-            matching_contacts = self.intersection(FL_FR_contacts, non_FL_FR_contacts)
-
-            for item in matching_contacts:
-                FL_FR_contacts = FL_FR_contacts[FL_FR_contacts != item[0]]
-
-            #Check if we should transition from q0 -> q1
-            #Only do so if self.rm_iters >= 8
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
             FL_FR_contacts_q0 = self.intersection(FL_FR_contacts, q0_envs)
-
-            #Find envs from FL_FR_contacts_q0 where self.rm_iters >= 8
-            #These environments can now transition to q1
             q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            #q0_q1_envs = np.intersect1d(FL_FR_contacts_q0.cpu(), (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             prop_symbols[q0_q1_envs] = 1
 
 
-            #Find environments which have RL/RR contacts
-            RL_RR_contacts = (torch.sum(RL_RR_masked, dim=1) == 2).nonzero()
-            non_RL_RR_contacts = (torch.sum(FL_FR_masked, dim=1) > 0).nonzero()
-
-            #Remove non_RL_RR_contacts from RL_RR_contacts
-            matching_contacts = self.intersection(RL_RR_contacts, non_RL_RR_contacts)
-
-            for item in matching_contacts:
-                RL_RR_contacts = RL_RR_contacts[RL_RR_contacts != item[0]]
-
-            #Check if we should transition from q1 -> q0
-            #Only do so if self.rm_iters >= 8
-            #RL_RR_contacts_q1 = np.intersect1d(RL_RR_contacts.cpu(), q1_envs.cpu())
+            RL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.RL_RR_mask,
+                                                unwanted_contacts_mask = self.FL_FR_mask)
             RL_RR_contacts_q1 = self.intersection(RL_RR_contacts, q1_envs)
-
-            #Find envs from FR_RR_contacts_q1 where self.rm_iters >= 8
-            #These environments can now transition to q0
-            #q1_q0_envs = np.intersect1d(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero().cpu())
             q1_q0_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
         elif(self.gait == 'canter'):
 
-            #Filter out environments based on which have exclusively FL/FR/RL feet contacts or exclusively RR contacts
-            FL_FR_RL_masked = foot_contacts * self.FL_FR_RL_mask
-            RR_masked = foot_contacts * self.RR_mask
-
-            #Find environments which have FL/FR/RL contacts
-            FL_FR_RL_contacts = (torch.sum(FL_FR_RL_masked, dim=1) > 0).nonzero()
-            RR_contacts = (torch.sum(RR_masked, dim=1) == 1).nonzero()
-
-            #Remove FL_FR_RL_contacts from RR_contacts
-            matching_contacts = self.intersection(FL_FR_RL_contacts, RR_contacts)
-
-            for item in matching_contacts:
-                RR_contacts = RR_contacts[RR_contacts != item[0]]
-
-            #Check if we should transition from q0 -> q1
-            #Only do so if self.rm_iters >= 8
+            RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.RR_mask,
+                                                unwanted_contacts_mask = self.FL_FR_RL_mask)
             RR_contacts_q0 = self.intersection(RR_contacts, q0_envs)
-
-            #Find envs from RR_contacts_q0 where self.rm_iters >= 8
-            #These environments can now transition to q1
-            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= 4).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
-            #Filter out environments based on which have exclusively FR/RL feet contacts or exclusively FL/RR contacts
-            FR_RL_masked = foot_contacts * self.FR_RL_mask
-            FL_RR_masked = foot_contacts * self.FL_RR_mask
-
-            #Find environments which have FL/FR/RL contacts
-            FR_RL_contacts = (torch.sum(FR_RL_masked, dim=1) == 2).nonzero()
-            FL_RR_contacts = (torch.sum(FL_RR_masked, dim=1) > 0).nonzero()
-
-            #Remove FL_RR_contacts from FR_RL_contacts
-            matching_contacts = self.intersection(FR_RL_contacts, FL_RR_contacts)
-
-            for item in matching_contacts:
-                FR_RL_contacts = FR_RL_contacts[FR_RL_contacts != item[0]]
-
-            #Check if we should transition from q1 -> q2
-            #Only do so if self.rm_iters >= 8
+            FR_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FR_RL_mask,
+                                                unwanted_contacts_mask = self.FL_RR_mask)
             FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
-
-            #Find envs from FR_RL_contacts_q1 where self.rm_iters >= 8
-            #These environments can now transition to q2
-            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= 4).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
 
-            #Filter out environments based on which have exclusively FR/RL/RR feet contacts or exclusively FL contacts
-            FR_RL_RR_masked = foot_contacts * self.FR_RL_RR_mask
-            FL_masked = foot_contacts * self.FL_mask
-
-            #Find environments which have FR/RL/RR contacts
-            FR_RL_RR_contacts = (torch.sum(FR_RL_RR_masked, dim=1) > 0).nonzero()
-            FL_contacts = (torch.sum(FL_masked, dim=1) == 1).nonzero()
-
-            #Remove FL_FR_RL_contacts from RR_contacts
-            matching_contacts = self.intersection(FR_RL_RR_contacts, FL_contacts)
-
-            for item in matching_contacts:
-                FL_contacts = FL_contacts[FL_contacts != item[0]]
-
-            #Check if we should transition from q2 -> q0
-            #Only do so if self.rm_iters >= 8
+            FL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_mask,
+                                                unwanted_contacts_mask = self.FR_RL_RR_mask)
             FL_contacts_q2 = self.intersection(FL_contacts, q2_envs)
+            q2_q3_envs = self.intersection(FL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q2_q3_envs] = 3
 
-            #Find envs from FL_contacts_q2 where self.rm_iters >= 8
-            #These environments can now transition to q0
-            q2_q0_envs = self.intersection(FL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q2_q0_envs] = 3
+            NONE_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
+            NONE_contacts_q3 = self.intersection(NONE_contacts, q3_envs)
+            q3_q0_envs = self.intersection(NONE_contacts_q3, (self.rm_iters[:] >= 4).nonzero())
+            prop_symbols[q3_q0_envs] = 4
 
         elif(self.gait == 'walk'):
 
-            #Filter out environments based on which have exclusively FR/RL/RR feet contacts or exclusively FL contacts
-            FR_RL_RR_masked = foot_contacts * self.FR_RL_RR_mask
-            FL_masked = foot_contacts * self.FL_mask
-
-            #Find environments which have FR/RL/RR contacts
-            FR_RL_RR_contacts = (torch.sum(FR_RL_RR_masked, dim=1) == 3).nonzero()
-            FL_contacts = (torch.sum(FL_masked, dim=1) > 0).nonzero()
-
-            #Remove FL_contacts from FR_RL_RR_contacts
-            matching_contacts = self.intersection(FR_RL_RR_contacts, FL_contacts)
-
-            for item in matching_contacts:
-                FR_RL_RR_contacts = FR_RL_RR_contacts[FR_RL_RR_contacts != item[0]]
-
-            #Check if we should transition from q0 -> q1
-            #Only do so if self.rm_iters >= 8
+            FR_RL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FR_RL_RR_mask,
+                                                unwanted_contacts_mask = self.FL_mask)
             FR_RL_RR_contacts_q0 = self.intersection(FR_RL_RR_contacts, q0_envs)
-
-            #Find envs from FR_RL_RR_contacts_q0 where self.rm_iters >= 8
-            #These environments can now transition to q1
             q0_q1_envs = self.intersection(FR_RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
-            #Filter out environments based on which have exclusively FL/FR/RL feet contacts or exclusively RR contacts
-            FL_FR_RL_masked = foot_contacts * self.FL_FR_RL_mask
-            RR_masked = foot_contacts * self.RR_mask
-
-            #Find environments which have FR/RL/RR contacts
-            FL_FR_RL_contacts = (torch.sum(FL_FR_RL_masked, dim=1) == 3).nonzero()
-            RR_contacts = (torch.sum(RR_masked, dim=1) > 0).nonzero()
-
-            #Remove FR_contacts from FL_FR_RL_contacts
-            matching_contacts = self.intersection(FL_FR_RL_contacts, RR_contacts)
-
-            for item in matching_contacts:
-                FL_FR_RL_contacts = FL_FR_RL_contacts[FL_FR_RL_contacts != item[0]]
-
-            #Check if we should transition from q1 -> q2
-            #Only do so if self.rm_iters >= 8
+            FL_FR_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_RL_mask,
+                                                unwanted_contacts_mask = self.RR_mask)
             FL_FR_RL_contacts_q1 = self.intersection(FL_FR_RL_contacts, q1_envs)
-
-            #Find envs from FL_FR_RL_contacts_q1 where self.rm_iters >= 8
-            #These environments can now transition to q2
             q1_q2_envs = self.intersection(FL_FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
 
-            #Filter out environments based on which have exclusively FL/RL/RR feet contacts or exclusively FR contacts
-            FL_RL_RR_masked = foot_contacts * self.FL_RL_RR_mask
-            FR_masked = foot_contacts * self.FR_mask
-
-            #Find environments which have FL/RL/RR contacts
-            FL_RL_RR_contacts = (torch.sum(FL_RL_RR_masked, dim=1) == 3).nonzero()
-            FR_contacts = (torch.sum(FR_masked, dim=1) > 0).nonzero()
-
-            #Remove FR_contacts from FL_RL_RR_contacts
-            matching_contacts = self.intersection(FL_RL_RR_contacts, FR_contacts)
-
-            for item in matching_contacts:
-                FL_RL_RR_contacts = FL_RL_RR_contacts[FL_RL_RR_contacts != item[0]]
-
-            #Check if we should transition from q2 -> q3
-            #Only do so if self.rm_iters >= 8
+            FL_RL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RL_RR_mask,
+                                                unwanted_contacts_mask = self.FR_mask)
             FL_RL_RR_contacts_q2 = self.intersection(FL_RL_RR_contacts, q2_envs)
-
-            #Find envs from FL_RL_RR_contacts_q2 where self.rm_iters >= 8
-            #These environments can now transition to q3
             q2_q3_envs = self.intersection(FL_RL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
 
-            #Filter out environments based on which have exclusively FL/FR/RR feet contacts or exclusively RL contacts
-            FL_FR_RR_masked = foot_contacts * self.FL_FR_RR_mask
-            RL_masked = foot_contacts * self.RL_mask
-
-            #Find environments which have FL/RL/RR contacts
-            FL_FR_RR_contacts = (torch.sum(FL_FR_RR_masked, dim=1) == 3).nonzero()
-            RL_contacts = (torch.sum(RL_masked, dim=1) > 0).nonzero()
-
-            #Remove RL_contacts from FL_FR_RR_contacts
-            matching_contacts = self.intersection(FL_FR_RR_contacts, RL_contacts)
-
-            for item in matching_contacts:
-                FL_FR_RR_contacts = FL_FR_RR_contacts[FL_FR_RR_contacts != item[0]]
-
-            #Check if we should transition from q3 -> q0
-            #Only do so if self.rm_iters >= 8
+            FL_FR_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_RR_mask,
+                                                unwanted_contacts_mask = self.RL_mask)
             FL_FR_RR_contacts_q3 = self.intersection(FL_FR_RR_contacts, q3_envs)
-
-            #Find envs from FL_FR_RR_contacts_q3 where self.rm_iters >= 8
-            #These environments can now transition to q0
             q3_q0_envs = self.intersection(FL_FR_RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q3_q0_envs] = 4
 
@@ -681,6 +508,14 @@ class LeggedRobot(BaseRMTask):
         #print(action_rates[0])
         excessive_action_rate_envs = (action_rates > self.cfg.env.max_action_rate).nonzero()
         self.reset_buf[excessive_action_rate_envs] = True
+
+        #Terminate if body height is too low
+        base_height = torch.mean(self.root_states[:, 2].unsqueeze(1) - self.measured_heights, dim=1)
+        low_base_height_envs = (base_height < self.cfg.env.min_base_height).nonzero()
+        self.reset_buf[low_base_height_envs] = True
+        #print(low_base_height_envs)
+        #print(base_height[1])
+
 
         #Restrict feet positions only before final gait frequency reached
         """if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):

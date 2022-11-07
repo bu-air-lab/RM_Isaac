@@ -24,13 +24,11 @@ class A1BoundingCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 42
 
-        rm_iters = 6
+        rm_iters = 8
         rm_iters_curriculum = False
-        #max_rm_iters = 8
 
-        #max_foot_clearance = 0.25
-        max_action_rate = 100
-        #min_feet_distance = 0.15
+        min_base_height = 0.25
+        max_action_rate = 80
 
     class commands (LeggedRobotCfg.commands):
         curriculum = False
@@ -39,11 +37,17 @@ class A1BoundingCfg( LeggedRobotCfg ):
         resampling_time = 10. # time before command are changed[s]
         heading_command = False # if true: compute ang vel command from heading error
         class ranges:
+
             #lin_vel_x = [0.75, 0.75] # min max [m/s]
             #lin_vel_y = [0, 0]   # min max [m/s]
             #ang_vel_yaw = [0, 0]    # min max [rad/s]
+
+            #lin_vel_x = [-0.5, 0.5] # min max [m/s]
+            #lin_vel_y = [0, 0]   # min max [m/s]
+            #ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
+
             lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+            lin_vel_y = [0, 0]   # min max [m/s]
             ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
 
     class terrain( LeggedRobotCfg.terrain ):
@@ -59,7 +63,9 @@ class A1BoundingCfg( LeggedRobotCfg ):
         #Default tertain curriculum
         #terrain_proportions = [0.1, 0.1, 0.35, 0.25, 0.2]
 
-        terrain_proportions = [0.3, 0.3, 0, 0, 0.4]
+        #terrain_proportions = [0.3, 0.3, 0, 0, 0.4]
+        terrain_proportions = [0, 1.0, 0, 0, 0]
+
         selected = False
         #terrain_kwargs =  { 'type': 'random_uniform_terrain', 'min_height': -0.1, 'max_height': 0.1, 'step': 0.1, 'downsampled_scale': 0.5} # Dict of arguments for selected terrain
 
@@ -101,7 +107,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         class scales( LeggedRobotCfg.rewards.scales ):
             torques = -0.0002
             dof_pos_limits = -10.0
-            base_height = -10.0
+            base_height = 0#-10.0
             orientation = -1.0
 
     class domain_rand( LeggedRobotCfg.domain_rand ):
@@ -127,14 +133,14 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
 
 
-        policy_class_name = 'ActorCriticRecurrent'
-        #policy_class_name = 'ActorCritic'
+        #policy_class_name = 'ActorCriticRecurrent'
+        policy_class_name = 'ActorCritic'
 
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1000 # number of policy updates
         load_run = 'rm_walk1' # folder directly containing model files
-        checkpoint = 800 # saved model iter
+        checkpoint = 1000 # saved model iter
 
 
 """

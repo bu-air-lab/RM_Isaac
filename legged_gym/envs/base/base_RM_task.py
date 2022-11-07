@@ -85,7 +85,7 @@ class BaseRMTask():
         if(gait == 'walk'):
             self.num_rm_states = 4
         if(gait == 'canter'):
-            self.num_rm_states = 3
+            self.num_rm_states = 4
 
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
