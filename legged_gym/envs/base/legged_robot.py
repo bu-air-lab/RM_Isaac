@@ -164,7 +164,9 @@ class LeggedRobot(BaseRMTask):
                                         hip_scale, 0.25, 0.25, 
                                         hip_scale, 0.25, 0.25]).to(self.device)
         self.max_torque = 35.5
+        self.max_RR_torque = 10.0
         self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
+        self.max_RR_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
 
         self.init_done = True
 
@@ -272,7 +274,7 @@ class LeggedRobot(BaseRMTask):
                                                 wanted_contacts_mask=self.RR_mask,
                                                 unwanted_contacts_mask = self.FL_FR_RL_mask)
             RR_contacts_q0 = self.intersection(RR_contacts, q0_envs)
-            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= 4).nonzero())
+            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= 6).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -280,7 +282,7 @@ class LeggedRobot(BaseRMTask):
                                                 wanted_contacts_mask=self.FR_RL_mask,
                                                 unwanted_contacts_mask = self.FL_RR_mask)
             FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= 4).nonzero())
+            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= 6).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
 
@@ -291,10 +293,13 @@ class LeggedRobot(BaseRMTask):
             q2_q3_envs = self.intersection(FL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
-            NONE_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
-            NONE_contacts_q3 = self.intersection(NONE_contacts, q3_envs)
-            q3_q0_envs = self.intersection(NONE_contacts_q3, (self.rm_iters[:] >= 4).nonzero())
-            prop_symbols[q3_q0_envs] = 4
+
+            #none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
+            #none_contacts_q3 = self.intersection(none_contacts, q3_envs)
+
+            #Stay in air for half as long as other poses
+            #q3_q0_envs = self.intersection(none_contacts_q3, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            #prop_symbols[q3_q0_envs] = 4
 
         elif(self.gait == 'walk'):
 
@@ -329,29 +334,134 @@ class LeggedRobot(BaseRMTask):
             q3_q0_envs = self.intersection(FL_FR_RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q3_q0_envs] = 4
 
+        #Alternate lifting FL/FR/RL, RR never makes contact
+        elif(self.gait == '3_legged_walk'):
+
+            FR_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FR_RL_mask,
+                                                unwanted_contacts_mask = self.FL_RR_mask)
+            FR_RL_contacts_q0 = self.intersection(FR_RL_contacts, q0_envs)
+            q0_q1_envs = self.intersection(FR_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+
+            FL_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RL_mask,
+                                                unwanted_contacts_mask = self.FR_RR_mask)
+            FL_RL_contacts_q1 = self.intersection(FL_RL_contacts, q1_envs)
+            q1_q2_envs = self.intersection(FL_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
+            FL_FR_contacts_q2 = self.intersection(FL_FR_contacts, q2_envs)
+            q2_q0_envs = self.intersection(FL_FR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q2_q0_envs] = 3
+
+        elif(self.gait == 'bound_air'):
+
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
+            FL_FR_contacts_q0 = self.intersection(FL_FR_contacts, q0_envs)
+            q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+            RL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.RL_RR_mask,
+                                                unwanted_contacts_mask = self.FL_FR_mask)
+            RL_RR_contacts_q1 = self.intersection(RL_RR_contacts, q1_envs)
+            q1_q2_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+
+            none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
+            none_contacts_q2 = self.intersection(none_contacts, q2_envs)
+
+            #Stay in air for half as long as other poses
+            q2_q0_envs = self.intersection(none_contacts_q2, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            prop_symbols[q2_q0_envs] = 3
+
 
         return prop_symbols
 
+    #Given current rm states, return foot indicies irrelevant to current or next rm state
+    def get_irrelevent_foot_indicies(self):
+
+        #Environment ids of each state
+        q0_envs = (self.current_rm_states_buf == 0).nonzero()
+        q1_envs = (self.current_rm_states_buf == 1).nonzero()        
+        q2_envs = (self.current_rm_states_buf == 2).nonzero()
+        q3_envs = (self.current_rm_states_buf == 3).nonzero()
+
+        irrelevant_foot_indicies = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+
+        #In all 2 state RMs, every foot matters in either current or next RM state
+        if(self.gait == 'trot' or self.gait == 'pace' or self.gait == 'bound'):
+            return irrelevant_foot_indicies
+
+        #Canter:
+        #    In state q0, FL is irrelevant
+        #    In state q1, RR is irrelevant
+        #    In state q2, FR and RL is irrelevant
+        elif(self.gait == 'canter'):
+
+            irrelevant_foot_indicies[q0_envs, 0] = 1
+            irrelevant_foot_indicies[q1_envs, 3] = 1
+            irrelevant_foot_indicies[q2_envs, 1] = 1
+            irrelevant_foot_indicies[q2_envs, 2] = 1
+            return irrelevant_foot_indicies
+
+        #Each foot contact matters in each current/next RM state for walk gait
+        #No foot is in the air for more than one state
+        elif(self.gait == 'walk' or self.gait == '3_legged_walk'):
+            return irrelevant_foot_indicies
+
+        else:
+            print("NEED TO IMPLEMENT get_irrelevent_foot_indicies() for new gait")
+            exit()
+
     #Return environments which have extraneous foot contacts
-    #This means some foot changed contact values twice before a pose transition
+    #This means one of the following:
+        #1. some foot not involved with current or next pose changed contact values once before a pose transition 
+        #2. some foot involved with current or next pose changed contact values twice before a pose transition
+
     #self.extraneous_contact_buffer is reset whenever rm_iters is reset.
     #So if self.extraneous_contact_buffer ever contains a 2, reset that environment
-    """def check_extraneous_contacts(self):
+    def check_extraneous_contacts(self):
 
         #Foot order: FL, FR, RL, RR
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-        #foot_contacts = torch.logical_or(contact, self.last_contacts)
-        #changed_foot_contact_indicies = (self.last_contacts != foot_contacts).nonzero()
+
+
+        #Determine which feet should not make contact during this pose or the next per environment
+        irrelevant_foot_indicies = self.get_irrelevent_foot_indicies()
+        irrelevent_contact_matrix = contact*irrelevant_foot_indicies
+        irrelevant_contact_envs = (torch.sum(irrelevent_contact_matrix, dim=1) > 0).nonzero().squeeze(1)
+
+        #Get environments which have foot contacts from an irrelevant foot
+        #irrelevant_foot_contact_indicies = (irrelevant_foot_indicies[changed_foot_contact_indicies[:,0], changed_foot_contact_indicies[:,1]] == 1).nonzero()
+        #if(irrelevant_foot_contact_indicies.shape[0] > 0):
+        #    irrelevant_foot_contact_envs = changed_foot_contact_indicies[irrelevant_foot_contact_indicies][:, 0][:, 0]
+
 
         changed_foot_contact_indicies = (self.last_contacts != contact).nonzero()
-
         self.extraneous_contact_buffer[changed_foot_contact_indicies[:,0], changed_foot_contact_indicies[:,1]] += 1
 
         #Extraneous contact envs are the ones which have any foot changing contact values twice
         extraneous_envs = (self.extraneous_contact_buffer == 2).nonzero()[:,0]
 
-        return extraneous_envs"""
+        #print(irrelevant_contact_envs)
+        #print(irrelevant_contact_envs.shape)
+        #print(extraneous_envs.shape)
+        #zz
 
+        all_extraneous_envs = torch.unique(torch.cat((irrelevant_contact_envs, extraneous_envs)))
+
+        return all_extraneous_envs
+        #return extraneous_envs
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -370,8 +480,13 @@ class LeggedRobot(BaseRMTask):
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
 
             #Check if any environments send torque commands that are too large
-            torque_exceeded_envs = (self.torques > self.max_torque).nonzero()[:,0]
+            torque_exceeded_envs = (torch.abs(self.torques) > self.max_torque).nonzero()[:,0]
+            RR_torque_exceeded_envs = (torch.abs(self.torques[:, 10:]) > self.max_RR_torque).nonzero()[:,0]
+
             self.max_torque_exceeded_envs = torch.cat((self.max_torque_exceeded_envs, torque_exceeded_envs))
+
+            if(self.gait == '3_legged_walk'):
+                self.max_RR_torque_exceeded_envs = torch.cat((self.max_RR_torque_exceeded_envs, RR_torque_exceeded_envs))
 
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
@@ -418,7 +533,7 @@ class LeggedRobot(BaseRMTask):
 
         #Reset rm_iters if extraneous foot contacts are made
         #This must be done before reward computation
-        #extraneous_contact_envs = self.check_extraneous_contacts()
+        extraneous_contact_envs = self.check_extraneous_contacts()
 
         # compute observations, rewards, resets, ...
         self.check_termination()
@@ -448,13 +563,14 @@ class LeggedRobot(BaseRMTask):
         self.rm_iters[:] += 1
         self.rm_iters[changed_envs] = 0
 
-        #Only reset on extraneous contact before final gait frequency reached
-        #if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):
-        #    self.rm_iters[extraneous_contact_envs] = 0
 
-        #Reset extraneous_contact_buffer for environments that had pose transition or reset
-        #self.extraneous_contact_buffer[changed_envs, :] = 0
-        #self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
+        if(self.gait == 'bound_air' or self.gait == 'canter'):
+
+            self.rm_iters[extraneous_contact_envs] = 0
+
+            #Reset extraneous_contact_buffer for environments that had pose transition or reset
+            self.extraneous_contact_buffer[changed_envs, :] = 0
+            self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0
 
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
@@ -513,9 +629,42 @@ class LeggedRobot(BaseRMTask):
         base_height = torch.mean(self.root_states[:, 2].unsqueeze(1) - self.measured_heights, dim=1)
         low_base_height_envs = (base_height < self.cfg.env.min_base_height).nonzero()
         self.reset_buf[low_base_height_envs] = True
-        #print(low_base_height_envs)
-        #print(base_height[1])
 
+        #Terminate if feet swing too high
+        #There's definately a cleaner way to implement this
+        foot_z_positions = self.link_positions[:, self.feet_indices, 2]
+        high_FL_foot_envs = (foot_z_positions[:,0] > base_height - 0.1).nonzero()
+        high_FR_foot_envs = (foot_z_positions[:,1] > base_height - 0.1).nonzero()
+        high_RL_foot_envs = (foot_z_positions[:,2] > base_height - 0.1).nonzero()
+        high_RR_foot_envs = (foot_z_positions[:,3] > base_height - 0.1).nonzero()
+        self.reset_buf[high_FL_foot_envs] = True
+        self.reset_buf[high_FR_foot_envs] = True
+        self.reset_buf[high_RL_foot_envs] = True
+        self.reset_buf[high_RR_foot_envs] = True
+
+        #Terminate if RR foot touches ground in 3_legged_walk gait after 15 episode steps
+        if(self.gait == '3_legged_walk'):
+
+            contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+            foot_contacts = torch.logical_or(contact, self.last_contacts)
+
+            #Get environments where RR foot makes contact
+            RR_contact_envs = (foot_contacts[:,3] == True).nonzero()
+
+            #Get environments which have passed 15 episode steps
+            past_init_envs = (self.episode_length_buf > 15).nonzero()
+
+            terminate_on_contact_envs = self.intersection(RR_contact_envs, past_init_envs)
+            self.reset_buf[terminate_on_contact_envs] = True
+
+            #Terminate if RR leg joints exceed specified torque threshold
+            self.reset_buf[self.max_RR_torque_exceeded_envs] = True
+            self.max_RR_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
+
+            #Terminate if RR foot is higher than base
+            RR_foot_z_positions = self.link_positions[:, self.feet_indices, 2][:,3]
+            high_RR_foot_envs = (RR_foot_z_positions > base_height - 0.1).nonzero()
+            self.reset_buf[high_RR_foot_envs] = True
 
         #Restrict feet positions only before final gait frequency reached
         """if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):
@@ -603,7 +752,7 @@ class LeggedRobot(BaseRMTask):
         #reset RMs indexed by env_ids
         self.current_rm_states_buf[env_ids] = 0
         self.rm_iters[env_ids] = 0
-        #self.extraneous_contact_buffer[env_ids, :] = 0
+        self.extraneous_contact_buffer[env_ids, :] = 0
 
     
     def compute_reward(self):
@@ -964,7 +1113,7 @@ class LeggedRobot(BaseRMTask):
     def _update_rm_iters_curriculum(self, env_ids):
 
         # If the tracking reward is above 75% of the maximum, decrease the target gait frequency by 1 env step
-        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.75 * self.reward_scales["tracking_lin_vel"]:
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.5 * self.reward_scales["tracking_lin_vel"]:
 
             if(self.cfg.env.rm_iters < self.cfg.env.max_rm_iters):
 

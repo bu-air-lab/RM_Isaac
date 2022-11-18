@@ -24,8 +24,11 @@ class A1BoundingCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 42
 
-        rm_iters = 8
+        rm_iters = 5
+
         rm_iters_curriculum = False
+        #rm_iters_curriculum = True
+        #max_rm_iters = 5
 
         min_base_height = 0.25
         max_action_rate = 80
@@ -38,17 +41,12 @@ class A1BoundingCfg( LeggedRobotCfg ):
         heading_command = False # if true: compute ang vel command from heading error
         class ranges:
 
-            #lin_vel_x = [0.75, 0.75] # min max [m/s]
-            #lin_vel_y = [0, 0]   # min max [m/s]
-            #ang_vel_yaw = [0, 0]    # min max [rad/s]
-
-            #lin_vel_x = [-0.5, 0.5] # min max [m/s]
-            #lin_vel_y = [0, 0]   # min max [m/s]
-            #ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
-
-            lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            lin_vel_y = [0, 0]   # min max [m/s]
-            ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
+            # min max [m/s]
+            #lin_vel_x = [0.5, 1.5] #bound_air range
+            lin_vel_x = [-1.0, 1.0] #trot, pace, bound, canter range
+            #lin_vel_x = [-0.5, 0.5] #walk, 3legged range
+            lin_vel_y = [0, 0]
+            ang_vel_yaw = [-0.5, 0.5]
 
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
@@ -139,10 +137,123 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1000 # number of policy updates
-        load_run = 'rm_walk1' # folder directly containing model files
-        checkpoint = 1000 # saved model iter
+        load_run = 'rm_canter1' # folder directly containing model files
+        checkpoint = 600 # saved model iter
 
 
 """
+
+canter trace with complex extraneous contact detection:
+
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False, False,  True,  True], device='cuda:0') tensor(3, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(4, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False,  True, False, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(3, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(4, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(3, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(4, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(3, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(4, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False, False], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([False,  True,  True, False], device='cuda:0') tensor(6, device='cuda:0')
+tensor([False,  True,  True,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([False, False, False,  True], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(1, device='cuda:0')
+tensor([ True, False, False,  True], device='cuda:0') tensor(2, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(3, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(4, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(5, device='cuda:0')
+tensor([ True, False, False, False], device='cuda:0') tensor(0, device='cuda:0')
+tensor([ True,  True,  True, False], device='cuda:0') tensor(1, device='cuda:0')
 
 """
