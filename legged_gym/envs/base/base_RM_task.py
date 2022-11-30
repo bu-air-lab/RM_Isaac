@@ -82,9 +82,14 @@ class BaseRMTask():
         self.reward_machine = VecRewardMachine(self.num_envs, self.device)
         self.num_rm_states = 2
 
-        if(gait == 'walk'):
+        if(gait == 'walk' or 
+            gait == 'trot_skip' or 
+            gait == 'pace_skip' or 
+            gait == 'bound_walk' or 
+            gait == 'pace_walk' or
+            gait == 'trot_pace'):
             self.num_rm_states = 4
-        if(gait == '3_legged_walk' or gait == 'bound_air' or gait == 'canter'):
+        elif(gait == '3_legged_walk' or gait == 'bound_air' or gait == 'canter'):
             self.num_rm_states = 3
 
         if(experiment_type == 'rm'):
@@ -93,8 +98,9 @@ class BaseRMTask():
             self.num_obs += 4 + 1 #add foot contacts and rm_iters to state space
         elif(experiment_type == 'naive3T'):
             self.num_obs *= 3 #State space include past 2 timesteps as well
-        elif(experiment_type == 'naive'):
-            self.num_obs -= 1 #no rm_iters
+            self.num_obs += 3 #Add another 3 for rm_iters. TODO: refactor
+        #elif(experiment_type == 'naive'):
+        #    self.num_obs -= 1 #no rm_iters
 
 
         # allocate buffers
