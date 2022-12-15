@@ -1,10 +1,8 @@
 """
-Vectorized RM.
-Only 2 states, intentionally built for compatibility with Isaac Gym (maintain each envs RM state on GPU)
+Vectorized RM, built for compatibility with Isaac Gym (maintain each envs RM state on GPU)
 """
 
-
-from legged_gym.reward_machines.reward_functions import *
+import torch
 
 class VecRewardMachine:
 

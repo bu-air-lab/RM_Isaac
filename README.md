@@ -1,7 +1,7 @@
 We modified this original repo: https://github.com/leggedrobotics/legged_gym, to add training via RM
 
-Original RM code from https://github.com/RodrigoToroIcarte/reward_machines
-We modified RM code to work with vectorized environments
+Our RM implementation inspired by original RM code from https://github.com/RodrigoToroIcarte/reward_machines
+Our implementation is compatible with vectorized environments on GPU
 
 # Train
 

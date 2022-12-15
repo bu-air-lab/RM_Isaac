@@ -1,3 +1,0 @@
-0   # initial state
-[]  # terminal state
-(0,0,'!Z',RMSelfLoopReward())
