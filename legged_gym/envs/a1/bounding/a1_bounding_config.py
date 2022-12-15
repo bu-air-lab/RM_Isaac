@@ -24,7 +24,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 42
 
-        rm_iters = 5
+        rm_iters = 6
 
         rm_iters_curriculum = False
         #rm_iters_curriculum = True
@@ -49,8 +49,8 @@ class A1BoundingCfg( LeggedRobotCfg ):
 
 
             # min max [m/s]
-            #lin_vel_x = [-1.0, 1.0] #trot, pace, bound, trot_pace, bound_walk range
-            lin_vel_x = [-0.5, 0.5] #walk range
+            lin_vel_x = [-1.0, 1.0] #trot, pace, bound, trot_pace, bound_walk range
+            #lin_vel_x = [-0.5, 0.5] #walk range
             lin_vel_y = [0, 0]
             ang_vel_yaw = [-0.5, 0.5]
 
@@ -143,7 +143,7 @@ class A1BoundingCfgPPO( LeggedRobotCfgPPO ):
         run_name = ''
         experiment_name = 'bounding_a1'
         max_iterations = 1000 # number of policy updates
-        load_run = 'rm_bound_walk3' # folder directly containing model files
+        load_run = 'rm_trot1' # folder directly containing model files
         checkpoint = 1000 # saved model iter
 
 

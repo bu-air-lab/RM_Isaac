@@ -71,7 +71,7 @@ class LeggedRobot(BaseRMTask):
         self.gait = gait
         self.experiment_type = experiment_type
         self.seed = seed
-        if(self.experiment_type not in ['rm', 'naive', 'naive3T', 'augmented', 'noGait']):
+        if(self.experiment_type not in ['rm', 'naive', 'naive3T', 'augmented', 'no_gait']):
             print("Experiment type doesn't exist")
             exit()
         self.height_samples = None
@@ -864,15 +864,15 @@ class LeggedRobot(BaseRMTask):
 
         #Terminate if feet swing too high
         #There's definately a cleaner way to implement this
-        foot_z_positions = self.link_positions[:, self.feet_indices, 2]
-        high_FL_foot_envs = (foot_z_positions[:,0] > base_height - 0.1).nonzero()
-        high_FR_foot_envs = (foot_z_positions[:,1] > base_height - 0.1).nonzero()
-        high_RL_foot_envs = (foot_z_positions[:,2] > base_height - 0.1).nonzero()
-        high_RR_foot_envs = (foot_z_positions[:,3] > base_height - 0.1).nonzero()
-        self.reset_buf[high_FL_foot_envs] = True
-        self.reset_buf[high_FR_foot_envs] = True
-        self.reset_buf[high_RL_foot_envs] = True
-        self.reset_buf[high_RR_foot_envs] = True
+        # foot_z_positions = self.link_positions[:, self.feet_indices, 2]
+        # high_FL_foot_envs = (foot_z_positions[:,0] > base_height - 0.1).nonzero()
+        # high_FR_foot_envs = (foot_z_positions[:,1] > base_height - 0.1).nonzero()
+        # high_RL_foot_envs = (foot_z_positions[:,2] > base_height - 0.1).nonzero()
+        # high_RR_foot_envs = (foot_z_positions[:,3] > base_height - 0.1).nonzero()
+        # self.reset_buf[high_FL_foot_envs] = True
+        # self.reset_buf[high_FR_foot_envs] = True
+        # self.reset_buf[high_RL_foot_envs] = True
+        # self.reset_buf[high_RR_foot_envs] = True
 
         #Terminate on extraneous contact
         if(self.gait == 'pace_skip' or self.gait == 'pace_walk'):

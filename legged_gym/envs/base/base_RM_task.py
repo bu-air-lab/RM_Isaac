@@ -91,6 +91,8 @@ class BaseRMTask():
             self.num_rm_states = 4
         elif(gait == '3_legged_walk' or gait == 'bound_air' or gait == 'canter'):
             self.num_rm_states = 3
+        elif(gait == 'no_gait'):
+            self.num_rm_states = 0
 
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
@@ -99,8 +101,6 @@ class BaseRMTask():
         elif(experiment_type == 'naive3T'):
             self.num_obs *= 3 #State space include past 2 timesteps as well
             self.num_obs += 3 #Add another 3 for rm_iters. TODO: refactor
-        #elif(experiment_type == 'naive'):
-        #    self.num_obs -= 1 #no rm_iters
 
 
         # allocate buffers

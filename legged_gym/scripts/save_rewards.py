@@ -30,7 +30,17 @@ env_cfg.noise.add_noise = False
 env_cfg.domain_rand.randomize_friction = False
 env_cfg.domain_rand.push_robots = False
 
-train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(args.seed)
+isNo_gait = False
+
+if(args.experiment == 'no_gait'):
+    train_cfg.runner.load_run = args.experiment + '_no_gait' + str(args.seed)
+    isNo_gait = True
+
+    #We evaluate no_gait on same reward as other baselines. naive is only baseline with same state space
+    args.experiment = 'naive'
+else:
+    train_cfg.runner.load_run = args.experiment + '_' + args.gait + str(args.seed)
+
 
 rewards = []
 reward_components = {}
@@ -90,6 +100,8 @@ for policy_iter in range(0, 1001, 50):
     #print(reward_components)
 
 #Now append to file
+if(isNo_gait):
+    args.experiment = 'no_gait'
 file = open(args.experiment + '_' + args.gait + '_rewards.txt', "a")
 for r in rewards:
     file.write(str(r) + ' ')

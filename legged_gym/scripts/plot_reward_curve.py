@@ -11,10 +11,15 @@ import torch
 
 import matplotlib.pyplot as plt
 
+#Dont use type 3 fonts
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['ps.fonttype'] = 42
+plt.rcParams.update({'font.size': 18})
+
 args = get_args()
 
-#experiments = ['naive', 'naive3T', 'augmented', 'rm']
-experiments = ['augmented', 'rm']
+experiments = ['no_gait', 'naive', 'naive3T', 'augmented', 'rm']
+#experiments = ['augmented', 'rm']
 #experiments = ['rm']
 
 all_rewards = []
@@ -73,13 +78,26 @@ for i, experiment in enumerate(experiments):
         std_below.append(reward - all_stds[i,t])
         std_above.append(reward + all_stds[i,t])
 
+    if(experiment == 'naive'):
+        experiment = 'Naive'
+    elif(experiment == 'naive3T'):
+        experiment = 'Naive-3T'
+    elif(experiment == 'augmented'):
+        experiment = 'Augmented'
+    elif(experiment == 'rm'):
+        experiment = 'RMLL'
+    elif(experiment == 'no_gait'):
+        experiment = 'No-Gait'
 
     ax.plot(time, all_rewards[i], label=experiment)
     ax.fill_between(time, std_below, std_above, alpha=.1)
 
 ax.legend()
 
+if(args.gait == 'bound_walk'):
+    args.gait = 'Three-One'
+
 plt.xlabel('Training Steps (in millions)')
 plt.ylabel('Reward')
-plt.title('Reward Curves for ' + args.gait + ' Gait')
+plt.title('Reward Curves for ' + args.gait.capitalize() + ' Gait')
 plt.savefig("plot_" + args.gait + ".pdf", bbox_inches='tight')
