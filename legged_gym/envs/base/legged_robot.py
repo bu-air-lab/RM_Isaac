@@ -732,6 +732,11 @@ class LeggedRobot(BaseRMTask):
 
         self.extras['reward_components'] = self.reward_components
 
+        #Needed for energy consumption calculation in scripts/measure_energy.py
+        self.extras['torques'] = self.torques
+        self.extras['dof_vels'] = self.dof_vel
+        self.extras['lin_vel'] = self.base_lin_vel[:, :2]
+
         return self.obs_buf, self.privileged_obs_buf, self.rew_buf, self.reset_buf, self.extras
 
     def post_physics_step(self):

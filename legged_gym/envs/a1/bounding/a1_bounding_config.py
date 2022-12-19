@@ -24,7 +24,7 @@ class A1BoundingCfg( LeggedRobotCfg ):
         num_envs = 4096
         num_observations = 42
 
-        rm_iters = 6
+        rm_iters = 5
 
         rm_iters_curriculum = False
         #rm_iters_curriculum = True
