@@ -37,22 +37,10 @@ from legged_gym.envs import *
 from legged_gym.utils import get_args, task_registry
 import torch
 
-from legged_gym import LEGGED_GYM_ROOT_DIR
-
 def train(args):
-
-	env, env_cfg = task_registry.make_env(name=args.task, args=args)
-	ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
-	ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
-
-	#Save rm_iters to policy folder
-	# log_root = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
-	# log_dir = os.path.join(log_root, args.experiment + '_' + args.gait + str(args.seed))
-	# file = open(log_dir + '/rm_iters.txt', "a")
-	# file.write("\nFinal common_step_counter: " + str(env.common_step_counter))
-	# file.write("\nFinal rm_iters: " + str(env.cfg.env.rm_iters))
-	# file.close()
-
+    env, env_cfg = task_registry.make_env(name=args.task, args=args)
+    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args)
+    ppo_runner.learn(num_learning_iterations=train_cfg.runner.max_iterations, init_at_random_ep_len=True)
 
 if __name__ == '__main__':
     args = get_args()

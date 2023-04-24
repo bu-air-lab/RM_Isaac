@@ -81,10 +81,6 @@ class LeggedRobotCfg(BaseConfig):
             lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
-            """lin_vel_x = [0.75, 0.75] # min max [m/s]
-            lin_vel_y = [0, 0]   # min max [m/s]
-            ang_vel_yaw = [0, 0]    # min max [rad/s]
-            heading = [0, 0]"""
 
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
@@ -179,7 +175,7 @@ class LeggedRobotCfg(BaseConfig):
         class noise_scales:
             dof_pos = 0.01
             dof_vel = 1.5
-            lin_vel = 0.25
+            lin_vel = 0.1
             ang_vel = 0.2
             gravity = 0.05
             height_measurements = 0.1

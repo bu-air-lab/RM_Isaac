@@ -162,16 +162,6 @@ class LeggedRobot(BaseRMTask):
                 self.past_base_vel.append(torch.zeros(self.num_envs, 3, device=self.device, dtype=torch.float))
                 self.past_rm_iters.append(torch.zeros(self.num_envs, 1, device=self.device, dtype=torch.float))
 
-        hip_scale = 0.02
-        self.action_scale = torch.tensor([hip_scale, 0.25, 0.25, 
-                                        hip_scale, 0.25, 0.25, 
-                                        hip_scale, 0.25, 0.25, 
-                                        hip_scale, 0.25, 0.25]).to(self.device)
-        self.max_torque = 35.5
-        self.max_RR_torque = 10.0
-        self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
-        self.max_RR_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
-
         self.init_done = True
 
     #Get intersection between 2 tensors
@@ -228,6 +218,8 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FR_RL_mask)
             FL_RR_contacts_q0 = self.intersection(FL_RR_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -236,6 +228,9 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FL_RR_mask)
             FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
             q1_q0_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q0_envs = self.intersection(q1_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q0_envs = self.intersection(q1_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+
             prop_symbols[q1_q0_envs] = 2
 
 
@@ -274,40 +269,6 @@ class LeggedRobot(BaseRMTask):
             q1_q0_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
             prop_symbols[q1_q0_envs] = 2
 
-        elif(self.gait == 'canter'):
-
-            #print(foot_contacts[0], self.rm_iters[0])
-
-            RR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.RR_mask,
-                                                unwanted_contacts_mask = self.FL_FR_RL_mask)
-            RR_contacts_q0 = self.intersection(RR_contacts, q0_envs)
-            q0_q1_envs = self.intersection(RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q0_q1_envs] = 1
-
-
-            FR_RL_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FR_RL_mask,
-                                                unwanted_contacts_mask = self.FL_RR_mask)
-            FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q1_q2_envs] = 2
-
-
-            FL_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FL_mask,
-                                                unwanted_contacts_mask = self.FR_RL_RR_mask)
-            FL_contacts_q2 = self.intersection(FL_contacts, q2_envs)
-            q2_q3_envs = self.intersection(FL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q2_q3_envs] = 3
-
-
-            #none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
-            #none_contacts_q3 = self.intersection(none_contacts, q3_envs)
-
-            #Stay in air for half as long as other poses
-            #q3_q0_envs = self.intersection(none_contacts_q3, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            #prop_symbols[q3_q0_envs] = 4
 
         elif(self.gait == 'walk'):
 
@@ -316,6 +277,7 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FL_mask)
             FR_RL_RR_contacts_q0 = self.intersection(FR_RL_RR_contacts, q0_envs)
             q0_q1_envs = self.intersection(FR_RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
 
@@ -324,6 +286,7 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.RR_mask)
             FL_FR_RL_contacts_q1 = self.intersection(FL_FR_RL_contacts, q1_envs)
             q1_q2_envs = self.intersection(FL_FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
 
@@ -332,6 +295,7 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FR_mask)
             FL_RL_RR_contacts_q2 = self.intersection(FL_RL_RR_contacts, q2_envs)
             q2_q3_envs = self.intersection(FL_RL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
 
@@ -340,57 +304,10 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.RL_mask)
             FL_FR_RR_contacts_q3 = self.intersection(FL_FR_RR_contacts, q3_envs)
             q3_q0_envs = self.intersection(FL_FR_RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q3_q0_envs] = 4
 
-        #Alternate lifting FL/FR/RL, RR never makes contact
-        elif(self.gait == '3_legged_walk'):
 
-            FR_RL_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FR_RL_mask,
-                                                unwanted_contacts_mask = self.FL_RR_mask)
-            FR_RL_contacts_q0 = self.intersection(FR_RL_contacts, q0_envs)
-            q0_q1_envs = self.intersection(FR_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q0_q1_envs] = 1
-
-
-            FL_RL_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FL_RL_mask,
-                                                unwanted_contacts_mask = self.FR_RR_mask)
-            FL_RL_contacts_q1 = self.intersection(FL_RL_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FL_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q1_q2_envs] = 2
-
-
-            FL_FR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FL_FR_mask,
-                                                unwanted_contacts_mask = self.RL_RR_mask)
-            FL_FR_contacts_q2 = self.intersection(FL_FR_contacts, q2_envs)
-            q2_q0_envs = self.intersection(FL_FR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q2_q0_envs] = 3
-
-        elif(self.gait == 'bound_air'):
-
-            FL_FR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FL_FR_mask,
-                                                unwanted_contacts_mask = self.RL_RR_mask)
-            FL_FR_contacts_q0 = self.intersection(FL_FR_contacts, q0_envs)
-            q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q0_q1_envs] = 1
-
-            RL_RR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.RL_RR_mask,
-                                                unwanted_contacts_mask = self.FL_FR_mask)
-            RL_RR_contacts_q1 = self.intersection(RL_RR_contacts, q1_envs)
-            q1_q2_envs = self.intersection(RL_RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q1_q2_envs] = 2
-
-
-            none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
-            none_contacts_q2 = self.intersection(none_contacts, q2_envs)
-
-            #Stay in air for half as long as other poses
-            q2_q0_envs = self.intersection(none_contacts_q2, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            prop_symbols[q2_q0_envs] = 3
 
         elif(self.gait == 'trot_skip'):
 
@@ -399,16 +316,24 @@ class LeggedRobot(BaseRMTask):
                                     unwanted_contacts_mask = self.FR_RL_mask)
             FL_RR_contacts_q0 = self.intersection(FL_RR_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
             #Stay in air for half as long as other poses
             none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
             none_contacts_q1 = self.intersection(none_contacts, q1_envs)
-            q1_q2_envs = self.intersection(none_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q1_q2_envs = self.intersection(none_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters-2).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
             FL_RR_contacts_q2 = self.intersection(FL_RR_contacts, q2_envs)
             q2_q3_envs = self.intersection(FL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
 
@@ -417,35 +342,52 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FL_RR_mask)
             FR_RL_contacts_q3 = self.intersection(FR_RL_contacts, q3_envs)
             q3_q0_envs = self.intersection(FR_RL_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q3_q0_envs] = 4
 
-            """none_contacts_q4 = self.intersection(none_contacts, q4_envs)
-            q4_q5_envs = self.intersection(none_contacts_q4, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            prop_symbols[q4_q5_envs] = 5
+            #Go to sink state if FR or RL makes contact WHILE at state q1 or q2
+            #print(foot_contacts)
+            FR_contact_envs = foot_contacts[:,1].nonzero()
+            RL_contact_envs = foot_contacts[:,2].nonzero()
 
-            FR_RL_contacts_q5 = self.intersection(FR_RL_contacts, q5_envs)
-            q5_q0_envs = self.intersection(FR_RL_contacts_q5, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q5_q0_envs] = 6"""
+            FR_contact_envs_q1 = self.intersection(FR_contact_envs, q1_envs)
+            FR_contact_envs_q2 = self.intersection(FR_contact_envs, q2_envs)
+
+            RL_contact_envs_q1 = self.intersection(RL_contact_envs, q1_envs)
+            RL_contact_envs_q2 = self.intersection(RL_contact_envs, q2_envs)
+
+            prop_symbols[FR_contact_envs_q1] = -1
+            prop_symbols[FR_contact_envs_q2] = -1
+            prop_symbols[RL_contact_envs_q1] = -1
+            prop_symbols[RL_contact_envs_q2] = -1
+
 
         elif(self.gait == 'pace_skip'):
-
-            #print(foot_contacts[0], self.current_rm_states_buf[0], self.rm_iters[0])
 
             FL_RL_contacts = self.contact_envs(foot_contacts, 
                         wanted_contacts_mask=self.FL_RL_mask,
                         unwanted_contacts_mask = self.FR_RR_mask)
             FL_RL_contacts_q0 = self.intersection(FL_RL_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
             #Stay in air for half as long as other poses
             none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
             none_contacts_q1 = self.intersection(none_contacts, q1_envs)
             q1_q2_envs = self.intersection(none_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
             FL_RL_contacts_q2 = self.intersection(FL_RL_contacts, q2_envs)
-            q2_q3_envs = self.intersection(FL_RL_contacts_q2, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q2_q3_envs = self.intersection(FL_RL_contacts_q2, (self.rm_iters[:] >= int(self.cfg.env.rm_iters)).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
 
@@ -454,7 +396,73 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FL_RL_mask)
             FR_RR_contacts_q3 = self.intersection(FR_RR_contacts, q3_envs)
             q3_q0_envs = self.intersection(FR_RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q3_q0_envs] = 4
+
+            #Go to sink state if FR and/or RR make contact while at state q2
+            FR_RR_contacts_q2 = self.intersection(FR_RR_contacts, q2_envs)
+            FR_contacts = self.contact_envs(foot_contacts, 
+                                    wanted_contacts_mask=self.FR_mask,
+                                    unwanted_contacts_mask = self.FL_RL_RR_mask)
+            FR_contacts_q2 = self.intersection(FR_contacts, q2_envs)
+            RR_contacts = self.contact_envs(foot_contacts, 
+                                    wanted_contacts_mask=self.RR_mask,
+                                    unwanted_contacts_mask = self.FL_FR_RL_mask)
+            RR_contacts_q2 = self.intersection(RR_contacts, q2_envs)
+
+            prop_symbols[FR_RR_contacts_q2] = -1
+            prop_symbols[FR_contacts_q2] = -1
+            prop_symbols[RR_contacts_q2] = -1
+
+
+        elif(self.gait == 'bound_skip'):
+
+            RL_RR_contacts = self.contact_envs(foot_contacts, 
+                        wanted_contacts_mask=self.RL_RR_mask,
+                        unwanted_contacts_mask = self.FL_FR_mask)
+            RL_RR_contacts_q0 = self.intersection(RL_RR_contacts, q0_envs)
+            q0_q1_envs = self.intersection(RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+            #Stay in air for half as long as other poses
+            none_contacts = (torch.sum(foot_contacts, dim=1) == 0).nonzero()
+            none_contacts_q1 = self.intersection(none_contacts, q1_envs)
+            q1_q2_envs = self.intersection(none_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+            RL_RR_contacts_q2 = self.intersection(RL_RR_contacts, q2_envs)
+            q2_q3_envs = self.intersection(RL_RR_contacts_q2, (self.rm_iters[:] >= int(self.cfg.env.rm_iters)).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q2_q3_envs] = 3
+
+
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
+            FL_FR_contacts_q3 = self.intersection(FL_FR_contacts, q3_envs)
+            q3_q0_envs = self.intersection(FL_FR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q3_q0_envs] = 4
+
+            #Go to sink state if FR and/or FL make contact while at state q2
+
+            FL_contact_envs = foot_contacts[:,0].nonzero()
+            FR_contact_envs = foot_contacts[:,1].nonzero()
+
+            FL_contact_envs_q2 = self.intersection(FL_contact_envs, q2_envs)
+            FR_contact_envs_q2 = self.intersection(FR_contact_envs, q2_envs)
+
+            prop_symbols[FL_contact_envs_q2] = -1
+            prop_symbols[FR_contact_envs_q2] = -1
 
 
         #FL/RR/RL -> FL -> FR/RL/RR -> FR -> ...
@@ -465,6 +473,7 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FR_mask)
             FL_RL_RR_contacts_q0 = self.intersection(FL_RL_RR_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
             FL_contacts = self.contact_envs(foot_contacts, 
@@ -472,6 +481,10 @@ class LeggedRobot(BaseRMTask):
                         unwanted_contacts_mask = self.FR_RL_RR_mask)
             FL_contacts_q1 = self.intersection(FL_contacts, q1_envs)
             q1_q2_envs = self.intersection(FL_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+
             prop_symbols[q1_q2_envs] = 2
 
             FR_RL_RR_contacts = self.contact_envs(foot_contacts, 
@@ -479,6 +492,7 @@ class LeggedRobot(BaseRMTask):
                                                 unwanted_contacts_mask = self.FL_mask)
             FR_RL_RR_contacts_q2 = self.intersection(FR_RL_RR_contacts, q2_envs)
             q2_q3_envs = self.intersection(FR_RL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
             FR_contacts = self.contact_envs(foot_contacts, 
@@ -486,208 +500,225 @@ class LeggedRobot(BaseRMTask):
                                     unwanted_contacts_mask = self.FL_RL_RR_mask)
             FR_contacts_q3 = self.intersection(FR_contacts, q3_envs)
             q3_q0_envs = self.intersection(FR_contacts_q3, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q3_q0_envs] = 4
 
-        #FL/RR -> FR/RL -> FR/RR -> FL/RL -> ...
-        elif(self.gait == 'trot_pace'):
+        elif(self.gait == 'biped_bound'):
+
+
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
+            FL_FR_contacts_q0 = self.intersection(FL_FR_contacts, q0_envs)
+            q0_q1_envs = self.intersection(FL_FR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q0_q1_envs] = 1
+
+
+            RR_contacts = self.contact_envs(foot_contacts, 
+                                    wanted_contacts_mask=self.RR_mask,
+                                    unwanted_contacts_mask = self.FL_FR_RL_mask)
+            RR_contacts_q1 = self.intersection(RR_contacts, q1_envs)
+            q1_q2_envs = self.intersection(RR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q1_q2_envs] = 2
+
+
+            FL_FR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_FR_mask,
+                                                unwanted_contacts_mask = self.RL_RR_mask)
+            FL_FR_contacts_q2 = self.intersection(FL_FR_contacts, q2_envs)
+            q2_q3_envs = self.intersection(FL_FR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q2_q3_envs] = 3
+
+
+            RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.RL_mask,
+                                                unwanted_contacts_mask = self.FL_FR_RR_mask)
+            RL_contacts_q3 = self.intersection(RL_contacts, q3_envs)
+            q3_q0_envs = self.intersection(RL_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q3_q0_envs] = 4
+
+            #Go to sink state if RL makes contact WHILE at state q1 or q2
+            #Go to sink state if RR makes contact WHILE at state q3 or q0
+            RL_contact_envs = foot_contacts[:,2].nonzero()
+            RR_contact_envs = foot_contacts[:,3].nonzero()
+
+            RL_contact_envs_q1 = self.intersection(RL_contact_envs, q1_envs)
+            RL_contact_envs_q2 = self.intersection(RL_contact_envs, q2_envs)
+
+            RR_contact_envs_q3 = self.intersection(RR_contact_envs, q3_envs)
+            RR_contact_envs_q0 = self.intersection(RR_contact_envs, q0_envs)
+
+            #Give 20 step grace period in begginning of episode where RR foot can make contact
+            RR_contact_envs_q0 = self.intersection(RR_contact_envs_q0, (self.episode_length_buf[:] >= 20).nonzero())
+
+            prop_symbols[RL_contact_envs_q1] = -1
+            prop_symbols[RL_contact_envs_q2] = -1
+            prop_symbols[RR_contact_envs_q3] = -1
+            prop_symbols[RR_contact_envs_q0] = -1
+
+        #(FL/RR -> FR -> FL/RR -> RL -> ...)
+        elif(self.gait == 'biped_trot'):
+
 
             FL_RR_contacts = self.contact_envs(foot_contacts, 
-                        wanted_contacts_mask=self.FL_RR_mask,
-                        unwanted_contacts_mask = self.FR_RL_mask)
+                                                wanted_contacts_mask=self.FL_RR_mask,
+                                                unwanted_contacts_mask = self.FR_RL_mask)
             FL_RR_contacts_q0 = self.intersection(FL_RR_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
-            FR_RL_contacts = self.contact_envs(foot_contacts, 
-                                    wanted_contacts_mask=self.FR_RL_mask,
-                                    unwanted_contacts_mask = self.FL_RR_mask)
-            FR_RL_contacts_q1 = self.intersection(FR_RL_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FR_RL_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q1_q2_envs] = 2
-
-            FR_RR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FR_RR_mask,
-                                                unwanted_contacts_mask = self.FL_RL_mask)
-            FR_RR_contacts_q2 = self.intersection(FR_RR_contacts, q2_envs)
-            q2_q3_envs = self.intersection(FR_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q2_q3_envs] = 3
-
-            FL_RL_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.FL_RL_mask,
-                                                unwanted_contacts_mask = self.FR_RR_mask)
-            FL_RL_contacts_q3 = self.intersection(FL_RL_contacts, q3_envs)
-            q3_q0_envs = self.intersection(FL_RL_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q3_q0_envs] = 4
-
-
-
-        """
-        elif(self.gait == 'bound_walk'):
-
-            RL_RR_contacts = self.contact_envs(foot_contacts, 
-                                                wanted_contacts_mask=self.RL_RR_mask,
-                                                unwanted_contacts_mask = self.FL_FR_mask)
-            RL_RR_contacts_q0 = self.intersection(RL_RR_contacts, q0_envs)
-            q0_q1_envs = self.intersection(RL_RR_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q0_q1_envs] = 1
-
-            FL_contacts = self.contact_envs(foot_contacts, 
-                        wanted_contacts_mask=self.FL_mask,
-                        unwanted_contacts_mask = self.FR_RL_RR_mask)
-            FL_contacts_q1 = self.intersection(FL_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FL_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            prop_symbols[q1_q2_envs] = 2
-
-            RL_RR_contacts_q2 = self.intersection(RL_RR_contacts, q2_envs)
-            q2_q3_envs = self.intersection(RL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
-            prop_symbols[q2_q3_envs] = 3
 
             FR_contacts = self.contact_envs(foot_contacts, 
                                     wanted_contacts_mask=self.FR_mask,
                                     unwanted_contacts_mask = self.FL_RL_RR_mask)
-            FR_contacts_q3 = self.intersection(FR_contacts, q3_envs)
-            q3_q0_envs = self.intersection(FR_contacts_q3, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            prop_symbols[q3_q0_envs] = 4
-            """
+            FR_contacts_q1 = self.intersection(FR_contacts, q1_envs)
+            q1_q2_envs = self.intersection(FR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q1_q2_envs] = 2
 
-        """elif(self.gait == 'pace_walk'):
+
+            FL_RR_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RR_mask,
+                                                unwanted_contacts_mask = self.FR_RL_mask)
+            FL_RR_contacts_q2 = self.intersection(FL_RR_contacts, q2_envs)
+            q2_q3_envs = self.intersection(FL_RR_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q2_q3_envs] = 3
+
+
+            RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.RL_mask,
+                                                unwanted_contacts_mask = self.FL_FR_RR_mask)
+            RL_contacts_q3 = self.intersection(RL_contacts, q3_envs)
+            q3_q0_envs = self.intersection(RL_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q3_q0_envs] = 4
+
+            #Go to sink state if FR makes contact WHILE at state q3 or q0
+            #Go to sink state if RL makes contact WHILE at state q1 or q2
+            FR_contact_envs = foot_contacts[:,1].nonzero()
+            RL_contact_envs = foot_contacts[:,2].nonzero()
+
+            FR_contact_envs_q0 = self.intersection(FR_contact_envs, q0_envs)
+            FR_contact_envs_q3 = self.intersection(FR_contact_envs, q3_envs)
+
+            RL_contact_envs_q1 = self.intersection(RL_contact_envs, q1_envs)
+            RL_contact_envs_q2 = self.intersection(RL_contact_envs, q2_envs)
+
+            #Give 20 step grace period in begginning of episode where FR foot can make contact
+            FR_contact_envs_q0 = self.intersection(FR_contact_envs_q0, (self.episode_length_buf[:] >= 20).nonzero())
+
+            prop_symbols[FR_contact_envs_q0] = -1
+            prop_symbols[FR_contact_envs_q3] = -1
+
+            prop_symbols[RL_contact_envs_q1] = -1
+            prop_symbols[RL_contact_envs_q2] = -1
+
+        #FL/RL -> FR -> FL/RL -> RR -> ...
+        elif(self.gait == 'biped_pace'):
+
 
             FL_RL_contacts = self.contact_envs(foot_contacts, 
                                                 wanted_contacts_mask=self.FL_RL_mask,
                                                 unwanted_contacts_mask = self.FR_RR_mask)
             FL_RL_contacts_q0 = self.intersection(FL_RL_contacts, q0_envs)
             q0_q1_envs = self.intersection(FL_RL_contacts_q0, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q0_q1_envs = self.intersection(q0_q1_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q0_q1_envs] = 1
 
+
             FR_contacts = self.contact_envs(foot_contacts, 
-                        wanted_contacts_mask=self.FR_mask,
-                        unwanted_contacts_mask = self.FL_RL_RR_mask)
+                                    wanted_contacts_mask=self.FR_mask,
+                                    unwanted_contacts_mask = self.FL_RL_RR_mask)
             FR_contacts_q1 = self.intersection(FR_contacts, q1_envs)
-            q1_q2_envs = self.intersection(FR_contacts_q1, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
+            q1_q2_envs = self.intersection(FR_contacts_q1, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            q1_q2_envs = self.intersection(q1_q2_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q1_q2_envs] = 2
 
+
+            FL_RL_contacts = self.contact_envs(foot_contacts, 
+                                                wanted_contacts_mask=self.FL_RL_mask,
+                                                unwanted_contacts_mask = self.FR_RR_mask)
             FL_RL_contacts_q2 = self.intersection(FL_RL_contacts, q2_envs)
             q2_q3_envs = self.intersection(FL_RL_contacts_q2, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q2_q3_envs = self.intersection(q2_q3_envs, (self.foot_heights[:,3] >= self.cfg.env.min_foot_height).nonzero())
             prop_symbols[q2_q3_envs] = 3
 
+
             RR_contacts = self.contact_envs(foot_contacts, 
-                                    wanted_contacts_mask=self.RR_mask,
-                                    unwanted_contacts_mask = self.FL_FR_RL_mask)
+                                                wanted_contacts_mask=self.RR_mask,
+                                                unwanted_contacts_mask = self.FL_FR_RL_mask)
             RR_contacts_q3 = self.intersection(RR_contacts, q3_envs)
-            q3_q0_envs = self.intersection(RR_contacts_q3, (self.rm_iters[:] >= int(self.cfg.env.rm_iters/2)).nonzero())
-            prop_symbols[q3_q0_envs] = 4"""
+            q3_q0_envs = self.intersection(RR_contacts_q3, (self.rm_iters[:] >= self.cfg.env.rm_iters).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,0] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,1] >= self.cfg.env.min_foot_height).nonzero())
+            q3_q0_envs = self.intersection(q3_q0_envs, (self.foot_heights[:,2] >= self.cfg.env.min_foot_height).nonzero())
+            prop_symbols[q3_q0_envs] = 4
+
+            #Go to sink state if FR makes contact WHILE at state q3 or q0
+            #Go to sink state if RR makes contact WHILE at state q1 or q2
+            FR_contact_envs = foot_contacts[:,1].nonzero()
+            RR_contact_envs = foot_contacts[:,3].nonzero()
+
+            FR_contact_envs_q0 = self.intersection(FR_contact_envs, q0_envs)
+            FR_contact_envs_q3 = self.intersection(FR_contact_envs, q3_envs)
+
+            RR_contact_envs_q1 = self.intersection(RR_contact_envs, q1_envs)
+            RR_contact_envs_q2 = self.intersection(RR_contact_envs, q2_envs)
+
+            #Give 20 step grace period in begginning of episode where FR foot can make contact
+            FR_contact_envs_q0 = self.intersection(FR_contact_envs_q0, (self.episode_length_buf[:] >= 20).nonzero())
+
+            prop_symbols[FR_contact_envs_q0] = -1
+            prop_symbols[FR_contact_envs_q3] = -1
+
+            prop_symbols[RR_contact_envs_q1] = -1
+            prop_symbols[RR_contact_envs_q2] = -1
+
+
 
         return prop_symbols
 
-    #Given current rm states, return foot indicies irrelevant to current or next rm state
-    def get_irrelevent_foot_indicies(self):
 
-        #Environment ids of each state
-        q0_envs = (self.current_rm_states_buf == 0).nonzero()
-        q1_envs = (self.current_rm_states_buf == 1).nonzero()        
-        q2_envs = (self.current_rm_states_buf == 2).nonzero()
-        q3_envs = (self.current_rm_states_buf == 3).nonzero()
+    #Returns the approximate height of ground under each foot
+    #Consider the average heights of four corners of measured_heights
+    def ground_under_foot_heights(self):
 
-        irrelevant_foot_indicies = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        #Indicies in self.measured_heights which correspond to ground under each foot
+        RR_indicies = [0, 1, 2, 11, 12, 13, 22, 23, 24]
+        RL_indicies = [8, 9, 10, 19, 20, 21, 30, 31, 32]
+        FR_indicies = [-11, -10, -9, -22, -21, -20, -33, -32, -31]
+        FL_indicies = [-3, -2, -1, -14, -13, -12, -25, -24, -23]
 
-        #In all 2 state RMs, every foot matters in either current or next RM state
-        if(self.gait == 'trot' or self.gait == 'pace' or self.gait == 'bound'):
-            return irrelevant_foot_indicies
+        RR_ground_height = torch.mean(self.measured_heights[:,RR_indicies]).item()
+        RL_ground_height = torch.mean(self.measured_heights[:,RL_indicies]).item()
+        FR_ground_height = torch.mean(self.measured_heights[:,FR_indicies]).item()
+        FL_ground_height = torch.mean(self.measured_heights[:,FL_indicies]).item()
 
-        #Canter:
-        #    In state q0, FL is irrelevant
-        #    In state q1, RR is irrelevant
-        #    In state q2, FR and RL is irrelevant
-        elif(self.gait == 'canter'):
-
-            irrelevant_foot_indicies[q0_envs, 0] = 1
-            irrelevant_foot_indicies[q1_envs, 3] = 1
-            irrelevant_foot_indicies[q2_envs, 1] = 1
-            irrelevant_foot_indicies[q2_envs, 2] = 1
-            return irrelevant_foot_indicies
-
-        #pace_skip:
-        #    In state q0, FR and RR is irrelevant
-        #    In state q1, FR and RR is irrelevant
-        #    In state q2, all are relevant
-        #    In state q3, all are relevant
-        elif(self.gait == 'pace_skip'):
-
-            #irrelevant_foot_indicies[q0_envs, 1] = 1
-            #irrelevant_foot_indicies[q0_envs, 3] = 1
-
-            irrelevant_foot_indicies[q1_envs, 0] = 1
-            irrelevant_foot_indicies[q1_envs, 1] = 1
-            irrelevant_foot_indicies[q1_envs, 2] = 1
-            irrelevant_foot_indicies[q1_envs, 3] = 1
-
-            irrelevant_foot_indicies[q2_envs, 1] = 1
-            irrelevant_foot_indicies[q2_envs, 3] = 1
-
-            return irrelevant_foot_indicies
-
-        #FL/RR/RL -> FL -> FR/RL/RR -> FR -> ...
-        elif(self.gait == 'bound_walk'):
-
-            irrelevant_foot_indicies[q1_envs, 1] = 1
-            irrelevant_foot_indicies[q1_envs, 2] = 1
-            irrelevant_foot_indicies[q1_envs, 3] = 1
-
-            irrelevant_foot_indicies[q3_envs, 0] = 1
-            irrelevant_foot_indicies[q3_envs, 2] = 1
-            irrelevant_foot_indicies[q3_envs, 3] = 1
-
-            return irrelevant_foot_indicies
-
-        elif(self.gait == 'pace_walk'):
-
-            irrelevant_foot_indicies[q1_envs, 0] = 1
-            irrelevant_foot_indicies[q1_envs, 2] = 1
-            irrelevant_foot_indicies[q1_envs, 3] = 1
-
-            irrelevant_foot_indicies[q3_envs, 0] = 1
-            irrelevant_foot_indicies[q3_envs, 1] = 1
-            irrelevant_foot_indicies[q3_envs, 2] = 1
-
-            return irrelevant_foot_indicies
-        #Each foot contact matters in each current/next RM state for walk gait
-        #No foot is in the air for more than one state
-        elif(self.gait == 'walk' or self.gait == '3_legged_walk'):
-            return irrelevant_foot_indicies
-
-        else:
-            print("NEED TO IMPLEMENT get_irrelevent_foot_indicies() for new gait")
-            exit()
-
-    #Return environments which have extraneous foot contacts
-    #This means one of the following:
-        #1. some foot not involved with current or next pose changed contact values once before a pose transition 
-        #2. some foot involved with current or next pose changed contact values twice before a pose transition
-
-    #self.extraneous_contact_buffer is reset whenever rm_iters is reset.
-    #So if self.extraneous_contact_buffer ever contains a 2, reset that environment
-    def check_extraneous_contacts(self):
-
-        #Foot order: FL, FR, RL, RR
-        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-
-
-        #Determine which feet should not make contact during this pose or the next per environment
-        irrelevant_foot_indicies = self.get_irrelevent_foot_indicies()
-        irrelevent_contact_matrix = contact*irrelevant_foot_indicies
-        irrelevant_contact_envs = (torch.sum(irrelevent_contact_matrix, dim=1) > 0).nonzero().squeeze(1)
-
-        #changed_foot_contact_indicies = (self.last_contacts != contact).nonzero()
-        #self.extraneous_contact_buffer[changed_foot_contact_indicies[:,0], changed_foot_contact_indicies[:,1]] += 1
-
-        #Extraneous contact envs are the ones which have any foot changing contact values twice
-        #extraneous_envs = (self.extraneous_contact_buffer == 2).nonzero()[:,0]
-
-        #all_extraneous_envs = torch.unique(torch.cat((irrelevant_contact_envs, extraneous_envs)))
-
-        return irrelevant_contact_envs
-        #return all_extraneous_envs
-        #return extraneous_envs
+        return RR_ground_height, RL_ground_height, FR_ground_height, FL_ground_height
 
     def step(self, actions):
         """ Apply actions, simulate, call self.post_physics_step()
@@ -704,16 +735,6 @@ class LeggedRobot(BaseRMTask):
         for _ in range(self.cfg.control.decimation):
 
             self.torques = self._compute_torques(self.actions).view(self.torques.shape)
-
-            #Check if any environments send torque commands that are too large
-            torque_exceeded_envs = (torch.abs(self.torques) > self.max_torque).nonzero()[:,0]
-            RR_torque_exceeded_envs = (torch.abs(self.torques[:, 10:]) > self.max_RR_torque).nonzero()[:,0]
-
-            self.max_torque_exceeded_envs = torch.cat((self.max_torque_exceeded_envs, torque_exceeded_envs))
-
-            if(self.gait == '3_legged_walk'):
-                self.max_RR_torque_exceeded_envs = torch.cat((self.max_RR_torque_exceeded_envs, RR_torque_exceeded_envs))
-
             self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self.torques))
             self.gym.simulate(self.sim)
             if self.device == 'cpu':
@@ -747,7 +768,7 @@ class LeggedRobot(BaseRMTask):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
 
-        #Needed to get foot coordinates to terminate environments when foot is too high
+        #Needed to get foot coordinates
         self.gym.refresh_rigid_body_state_tensor(self.sim)
 
 
@@ -760,11 +781,24 @@ class LeggedRobot(BaseRMTask):
         self.base_ang_vel[:] = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
         self.projected_gravity[:] = quat_rotate_inverse(self.base_quat, self.gravity_vec)
 
-        self._post_physics_step_callback()
+        #Order: FL,FR,RL,RR
+        self.foot_heights = self.link_positions[:, self.feet_indices, 2] #Global foot height
 
-        #Reset rm_iters if extraneous foot contacts are made
-        #This must be done before reward computation
-        #extraneous_contact_envs = self.check_extraneous_contacts()
+        #Subtract ground height below foot from foot height.
+        #This is approximately how high the foot is in the air
+        if(type(self.measured_heights) != int):
+
+            RR_ground_height, RL_ground_height, FR_ground_height, FL_ground_height = self.ground_under_foot_heights()
+
+            self.foot_heights[:,0] -= FL_ground_height
+            self.foot_heights[:,1] -= FR_ground_height
+            self.foot_heights[:,2] -= RL_ground_height
+            self.foot_heights[:,3] -= RR_ground_height
+
+        #Clip footheight minimum to 0 (foot is never below ground)
+        self.foot_heights = torch.clamp(self.foot_heights, min=0)
+
+        self._post_physics_step_callback()
 
         # compute observations, rewards, resets, ...
         self.check_termination()
@@ -782,32 +816,14 @@ class LeggedRobot(BaseRMTask):
                                                         self.experiment_type,
                                                         self.gait)
 
-        #Remove RM bonus after some number of iterations
-        #This encourages the robot to move smoother and better minimize energy, while likely maintaining its already learned gait
-        #if(self.common_step_counter / 24 >= self.cfg.env.remove_bonus_iter):
-        #    self.reward_machine.set_bonus(10)
-
         #Add 1 to rm_iters per each env. 
         #Reset rm_iters for envs when RM state changes.
-        #Reset rm_iters if extraneous contact is made
         changed_envs = (self.current_rm_states_buf - new_rm_states).nonzero()
         self.rm_iters[:] += 1
         self.rm_iters[changed_envs] = 0
 
-
-        """if(self.gait == 'bound_air' or self.gait == 'canter' or self.gait == '3_legged_walk'
-            or self.gait == 'trot_skip' or self.gait == 'pace_skip'):
-
-            self.rm_iters[extraneous_contact_envs] = 0
-
-            #Reset extraneous_contact_buffer for environments that had pose transition or reset
-            self.extraneous_contact_buffer[changed_envs, :] = 0
-            self.extraneous_contact_buffer[extraneous_contact_envs, :] = 0"""
-
         self.current_rm_states_buf = new_rm_states
         self.rew_buf = rm_rew
-
-        #print("RM state:", new_rm_states)
 
         #Update observation buffers for naive3T
         if(self.experiment_type == 'naive3T'):
@@ -840,99 +856,24 @@ class LeggedRobot(BaseRMTask):
         """ Check if environments need to be reset
         """
 
-        #Terminate if any joint is ever out of bounds
-        out_of_limits = -(self.dof_pos - self.dof_pos_limits[:, 0]).clip(max=0.) # lower limit
-        out_of_limits += (self.dof_pos - self.dof_pos_limits[:, 1]).clip(min=0.) # upper limit
-        out_of_limits = torch.sum(out_of_limits, dim=1)
-        out_of_limits_envs = out_of_limits.nonzero()
-
-        #Terminate if wrong limb touches ground, or timeout
+        #Terminate on non-foot contact or timeout
         self.reset_buf = torch.any(torch.norm(self.contact_forces[:, self.termination_contact_indices, :], dim=-1) > 1., dim=1)
         self.time_out_buf = self.episode_length_buf > self.max_episode_length # no terminal reward for time-outs
         self.reset_buf |= self.time_out_buf
-        self.reset_buf[out_of_limits_envs] = True
 
-        #Terminate if max torque command was sent
-        self.reset_buf[self.max_torque_exceeded_envs] = True
-        self.max_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
-
-        #Terminate if action difference is too large
-        action_rates = self._reward_action_rate()
-        #print(action_rates[0])
-        excessive_action_rate_envs = (action_rates > self.cfg.env.max_action_rate).nonzero()
-        self.reset_buf[excessive_action_rate_envs] = True
-
-        #Terminate if body height is too low
+        #Terminate if base height goes below some threshold
         base_height = torch.mean(self.root_states[:, 2].unsqueeze(1) - self.measured_heights, dim=1)
         low_base_height_envs = (base_height < self.cfg.env.min_base_height).nonzero()
         self.reset_buf[low_base_height_envs] = True
 
-        #Terminate if feet swing too high
-        #There's definately a cleaner way to implement this
-        # foot_z_positions = self.link_positions[:, self.feet_indices, 2]
-        # high_FL_foot_envs = (foot_z_positions[:,0] > base_height - 0.1).nonzero()
-        # high_FR_foot_envs = (foot_z_positions[:,1] > base_height - 0.1).nonzero()
-        # high_RL_foot_envs = (foot_z_positions[:,2] > base_height - 0.1).nonzero()
-        # high_RR_foot_envs = (foot_z_positions[:,3] > base_height - 0.1).nonzero()
-        # self.reset_buf[high_FL_foot_envs] = True
-        # self.reset_buf[high_FR_foot_envs] = True
-        # self.reset_buf[high_RL_foot_envs] = True
-        # self.reset_buf[high_RR_foot_envs] = True
+        #Terminate on excessive action differences. For some reason, action rate continuously increases otherwise.
+        action_rates = self._reward_action_rate()
+        excessive_action_rate_envs = (action_rates > self.cfg.env.max_action_rate).nonzero()
+        self.reset_buf[excessive_action_rate_envs] = True
 
-        #Terminate on extraneous contact
-        if(self.gait == 'pace_skip' or self.gait == 'pace_walk'):
-            extraneous_contact_envs = self.check_extraneous_contacts()
-            self.reset_buf[extraneous_contact_envs] = True
-
-        #Terminate if RR foot touches ground in 3_legged_walk gait after 15 episode steps
-        if(self.gait == '3_legged_walk'):
-
-            contact = self.contact_forces[:, self.feet_indices, 2] > 1.
-            foot_contacts = torch.logical_or(contact, self.last_contacts)
-
-            #Get environments where RR foot makes contact
-            RR_contact_envs = (foot_contacts[:,3] == True).nonzero()
-
-            #Get environments which have passed 15 episode steps
-            past_init_envs = (self.episode_length_buf > 15).nonzero()
-
-            terminate_on_contact_envs = self.intersection(RR_contact_envs, past_init_envs)
-            self.reset_buf[terminate_on_contact_envs] = True
-
-            #Terminate if RR leg joints exceed specified torque threshold
-            self.reset_buf[self.max_RR_torque_exceeded_envs] = True
-            self.max_RR_torque_exceeded_envs = torch.tensor([], device=self.device, dtype=torch.long)
-
-            #Terminate if RR foot is higher than base
-            RR_foot_z_positions = self.link_positions[:, self.feet_indices, 2][:,3]
-            high_RR_foot_envs = (RR_foot_z_positions > base_height - 0.1).nonzero()
-            self.reset_buf[high_RR_foot_envs] = True
-
-        #Restrict feet positions only before final gait frequency reached
-        """if(self.cfg.env.rm_iters != self.cfg.env.max_rm_iters):
-
-            #Terminate if feet are too high after 15 episode steps
-            feet_z_positions = self.link_positions[:, self.feet_indices, 2]
-            large_foot_clearance_envs = torch.unique((feet_z_positions - self.cfg.env.max_foot_clearance > self.measured_heights).nonzero()[:,0])
-            past_init_envs = (self.episode_length_buf > 15).nonzero()
-            large_foot_clearance_termination_envs = self.intersection(large_foot_clearance_envs, past_init_envs)
-            self.reset_buf[large_foot_clearance_termination_envs] = True
-
-            #Terminate if feet are too close together
-            feet_xy_positions = self.link_positions[:, self.feet_indices, 0:2]
-            front_feet_xy_positions = feet_xy_positions[:, :2]
-            back_feet_xy_positions = feet_xy_positions[:, 2:]
-
-            front_feet_distances = torch.sqrt((front_feet_xy_positions[:, 0, 0] - front_feet_xy_positions[:, 1, 0])**2
-                                                + (front_feet_xy_positions[:, 0, 1] - front_feet_xy_positions[:, 1, 1])**2)
-
-            back_feet_distances = torch.sqrt((back_feet_xy_positions[:, 0, 0] - back_feet_xy_positions[:, 1, 0])**2
-                                                + (back_feet_xy_positions[:, 0, 1] - back_feet_xy_positions[:, 1, 1])**2)
-
-            front_feet_too_close_envs = (front_feet_distances < self.cfg.env.min_feet_distance).nonzero()
-            back_feet_too_close_envs = (back_feet_distances < self.cfg.env.min_feet_distance).nonzero()
-            self.reset_buf[front_feet_too_close_envs] = True
-            self.reset_buf[back_feet_too_close_envs] = True"""
+        #Terminate if foot swings above some threshold
+        high_foot_height_envs = (self.foot_heights > self.cfg.env.max_foot_height).nonzero()[:,0]
+        self.reset_buf[high_foot_height_envs] = True
 
 
     def reset_idx(self, env_ids):
@@ -953,13 +894,6 @@ class LeggedRobot(BaseRMTask):
         # avoid updating command curriculum at each step since the maximum command is common to all envs
         if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length==0):
             self.update_command_curriculum(env_ids)
-        #Update action scale curriculum
-        #if self.cfg.control.curriculum and (self.common_step_counter % self.max_episode_length==0):
-        #    self._update_action_scale_curriculum(env_ids)
-        #Update joint acceleration penalty curriculum
-        #if self.cfg.rewards.dof_acc_curriculum and (self.common_step_counter % self.max_episode_length==0):
-        #    self._update_dof_acc_curriculum(env_ids)
-        #Update rm_iters curriculum
 
         if self.cfg.env.rm_iters_curriculum and (self.common_step_counter % 100 == 0):
             self._update_rm_iters_curriculum(env_ids)
@@ -967,9 +901,7 @@ class LeggedRobot(BaseRMTask):
         # reset robot states
         self._reset_dofs(env_ids)
         self._reset_root_states(env_ids)
-
         self._resample_commands(env_ids)
-        #self._resample_rm_iters(env_ids)
 
         # reset buffers
         self.last_actions[env_ids] = 0.
@@ -994,8 +926,6 @@ class LeggedRobot(BaseRMTask):
         #reset RMs indexed by env_ids
         self.current_rm_states_buf[env_ids] = 0
         self.rm_iters[env_ids] = 0
-        #self.extraneous_contact_buffer[env_ids, :] = 0
-
     
     def compute_reward(self):
         """ Compute rewards
@@ -1022,32 +952,43 @@ class LeggedRobot(BaseRMTask):
         """ Computes observations
         """
 
+
         #For RM approach, include RM state in observations
         #For non-RM approach, we only maintain RMs to compute rewards. Thus, don't include RM in observations.
         if(self.experiment_type == 'rm'):
 
+            #contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+            #foot_contacts = torch.logical_or(contact, self.last_contacts) 
+
             rm_state_encoding = F.one_hot(self.current_rm_states_buf, num_classes=self.num_rm_states)
-            self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
-                                #self.base_ang_vel  * self.obs_scales.ang_vel,
-                                #self.projected_gravity,
+            #print(rm_state_encoding)
+            self.obs_buf = torch.cat((
                                 self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions,
                                 rm_state_encoding,
-                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale#,
-                                #self.max_rm_iters * self.obs_scales.rm_iters_scale
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                torch.zeros(self.num_envs, 7, device=self.device, dtype=torch.float) #placeholder for estimated base_lin_vel and foot heights
+                                ),dim=-1)
+
+            self.privileged_obs_buf = torch.cat((
+                                self.commands[:, :3] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions,
+                                rm_state_encoding,
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                self.base_lin_vel * self.obs_scales.lin_vel,
+                                self.foot_heights
                                 ),dim=-1)
 
         elif(self.experiment_type == 'augmented'):
 
             contact = self.contact_forces[:, self.feet_indices, 2] > 1.
             foot_contacts = torch.logical_or(contact, self.last_contacts) 
-            #self.last_contacts = contact
 
             self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
-                    #self.base_ang_vel  * self.obs_scales.ang_vel,
-                    #self.projected_gravity,
                     self.commands[:, :3] * self.commands_scale,
                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                     self.dof_vel * self.obs_scales.dof_vel,
@@ -1087,13 +1028,10 @@ class LeggedRobot(BaseRMTask):
         else:
 
             self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
-                                #self.base_ang_vel  * self.obs_scales.ang_vel,
-                                #self.projected_gravity,
                                 self.commands[:, :3] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
                                 self.actions
-                                #self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale
                                 ),dim=-1)
 
         # add perceptive inputs if not blind
@@ -1247,9 +1185,9 @@ class LeggedRobot(BaseRMTask):
             [torch.Tensor]: Torques sent to the simulation
         """
         #pd controller
-        actions_scaled = actions * self.action_scale
+        #actions_scaled = actions * self.action_scale
 
-        #actions_scaled = actions * self.cfg.control.action_scale
+        actions_scaled = actions * self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
         if control_type=="P":
             torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
@@ -1386,42 +1324,19 @@ class LeggedRobot(BaseRMTask):
         Returns:
             [torch.Tensor]: Vector of scales used to multiply a uniform distribution in [-1, 1]
         """
-        """noise_vec = torch.zeros_like(self.obs_buf[0])
-        self.add_noise = self.cfg.noise.add_noise
-        noise_scales = self.cfg.noise.noise_scales
-        noise_level = self.cfg.noise.noise_level
-        noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
-        noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
-        noise_vec[6:9] = noise_scales.gravity * noise_level
-        noise_vec[9:12] = 0. # commands
-        noise_vec[12:24] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[24:36] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[36:48] = 0. # previous actions"""
+
         noise_vec = torch.zeros_like(self.obs_buf[0])
         self.add_noise = self.cfg.noise.add_noise
         noise_scales = self.cfg.noise.noise_scales
         noise_level = self.cfg.noise.noise_level
 
-        """noise_vec[:3] = 0. # commands
+        noise_vec[:3] = 0. # commands
         noise_vec[3:15] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[15:27] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[27:40] = 0. # previous actions + RM state"""
+        noise_vec[27:] = 0. # previous actions + RM state + state estimation
 
-        """noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
-        noise_vec[3:6] = noise_scales.ang_vel * noise_level * self.obs_scales.ang_vel
-        noise_vec[6:9] = 0. # commands
-        noise_vec[9:21] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[21:33] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[33:46] = 0. # previous actions + RM state"""
-
-        noise_vec[:3] = noise_scales.lin_vel * noise_level * self.obs_scales.lin_vel
-        noise_vec[3:6] = 0. # commands
-        noise_vec[6:18] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
-        noise_vec[18:30] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
-        noise_vec[30:43] = 0. # previous actions + RM state
-
-        if self.cfg.terrain.measure_heights:
-            noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
+        #if self.cfg.terrain.measure_heights:
+        #    noise_vec[48:235] = noise_scales.height_measurements* noise_level * self.obs_scales.height_measurements
         return noise_vec
 
     #----------------------------------------
@@ -1677,10 +1592,6 @@ class LeggedRobot(BaseRMTask):
             if not self.cfg.terrain.curriculum: max_init_level = self.cfg.terrain.num_rows - 1
             self.terrain_levels = torch.randint(0, max_init_level+1, (self.num_envs,), device=self.device)
             self.terrain_types = torch.div(torch.arange(self.num_envs, device=self.device), (self.num_envs/self.cfg.terrain.num_cols), rounding_mode='floor').to(torch.long)
-            #self.terrain_types = torch.zeros(self.num_envs, device=self.device).to(torch.long)
-            #self.terrain_types[:] = 2
-            #print(self.terrain_types)
-            #zz
             self.max_terrain_level = self.cfg.terrain.num_rows
             self.terrain_origins = torch.from_numpy(self.terrain.env_origins).to(self.device).to(torch.float)
             self.env_origins[:] = self.terrain_origins[self.terrain_levels, self.terrain_types]

@@ -75,17 +75,19 @@ class BaseRMTask():
         self.reward_machine = VecRewardMachine(self.num_envs, self.device)
         self.num_rm_states = 2
 
-        if(gait == 'walk' or 
-            gait == 'trot_skip' or 
-            gait == 'pace_skip' or 
+        if(gait == 'walk' or  
             gait == 'bound_walk' or 
             gait == 'pace_walk' or
             gait == 'trot_pace'):
             self.num_rm_states = 4
-        elif(gait == '3_legged_walk' or gait == 'bound_air' or gait == 'canter'):
-            self.num_rm_states = 3
+        elif(gait == 'biped_bound' or gait == 'trot_skip'):
+            self.num_rm_states = 5
         elif(gait == 'no_gait'):
             self.num_rm_states = 0
+        elif(gait == 'bound_skip' or gait == 'pace_skip' or gait == 'biped_trot' or gait == 'biped_pace'):
+            self.num_rm_states = 5
+        else:
+            print("In base_RM_task.py, must define gait")
 
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
@@ -96,11 +98,14 @@ class BaseRMTask():
             self.num_obs += 3 #Add another 3 for rm_iters. TODO: refactor
 
 
+        self.num_privileged_obs = self.num_obs
+
         # allocate buffers
         self.obs_buf = torch.zeros(self.num_envs, self.num_obs, device=self.device, dtype=torch.float)
         self.current_rm_states_buf  = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.rm_iters = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
         self.extraneous_contact_buffer = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
+        self.foot_heights = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.float)
         self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)

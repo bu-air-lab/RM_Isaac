@@ -16,7 +16,8 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams.update({'font.size': 18})
 
-args = get_args()
+#args = get_args()
+gait = 'bound_walk'
 
 experiments = ['no_gait', 'naive', 'naive3T', 'augmented', 'rm']
 #experiments = ['augmented', 'rm']
@@ -28,7 +29,7 @@ all_stds = []
 for experiment in experiments:
 
     #Read rewards file per each experiment type
-    file = open(experiment + '_' + args.gait + '_rewards.txt', "r")
+    file = open(experiment + '_' + gait + '_rewards.txt', "r")
     file_lines = file.readlines()
 
     temp_rewards_storage = []
@@ -69,6 +70,14 @@ fig, ax = plt.subplots()
 #Lets call it 5 million
 time = [i*5 for i in range(0, len(all_rewards[0]))]
 
+#linestyles = ['solid', 'dashed', 'dotted', 'dashdot', 'None']
+dashstyles = [[2,2,2,2],
+                [5,2,5,2],
+                [10,5,10,5],
+                [15,5,15,5],
+                [20,10,20,10]
+            ]
+
 for i, experiment in enumerate(experiments):
 
     std_below = []
@@ -89,15 +98,16 @@ for i, experiment in enumerate(experiments):
     elif(experiment == 'no_gait'):
         experiment = 'No-Gait'
 
-    ax.plot(time, all_rewards[i], label=experiment)
+    ax.plot(time, all_rewards[i], label=experiment, dashes=dashstyles[i])
     ax.fill_between(time, std_below, std_above, alpha=.1)
 
 ax.legend()
 
-if(args.gait == 'bound_walk'):
-    args.gait = 'Three-One'
+if(gait == 'bound_walk'):
+    gait = 'Three-One'
 
 plt.xlabel('Training Steps (in millions)')
 plt.ylabel('Reward')
-plt.title('Reward Curves for ' + args.gait.capitalize() + ' Gait')
-plt.savefig("plot_" + args.gait + ".pdf", bbox_inches='tight')
+#plt.title('Reward Curves for ' + args.gait.capitalize() + ' Gait')
+plt.title('Gait: ' + gait.capitalize())
+plt.savefig("plot_" + gait + ".pdf", bbox_inches='tight')
