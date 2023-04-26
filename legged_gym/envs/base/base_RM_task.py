@@ -75,10 +75,7 @@ class BaseRMTask():
         self.reward_machine = VecRewardMachine(self.num_envs, self.device)
         self.num_rm_states = 2
 
-        if(gait == 'walk' or  
-            gait == 'bound_walk' or 
-            gait == 'pace_walk' or
-            gait == 'trot_pace'):
+        if(gait == 'walk' or gait == 'three_one'):
             self.num_rm_states = 4
         elif(gait == 'biped_bound' or gait == 'trot_skip'):
             self.num_rm_states = 5

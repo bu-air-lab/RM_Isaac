@@ -291,22 +291,29 @@ class BulletEnv(gym.Env):
         linear_vel, angular_vel = p.getBaseVelocity(self.robot)
 
 
-        max_rm_iters = 6
-        rm_state = self._get_RM_state(max_rm_iters)
+        rm_iters = 6
+        if(self.current_timestep >= 200 and self.current_timestep < 400):
+            rm_iters = 8
+        elif(self.current_timestep >= 400):
+            rm_iters = 10
+        # elif(self.current_timestep >= 600 and self.current_timestep < 800):
+        #     rm_iters = 8
+        # elif(self.current_timestep >= 800 and self.current_timestep < 1000):
+        #     rm_iters = 9
+        # elif(self.current_timestep >= 1000 and self.current_timestep < 1200):
+        #     rm_iters = 10
+        rm_state = self._get_RM_state(rm_iters)
 
-        command = [1, 0, 0] #forward
-        #command = [1.0, 0, 0] #forward
-        #command = [1.5, 0, 0.17] #forward + left
-        #command = [1.5, 0, -0.05] #forward + right
+        command = [1, 0] #forward
+        #command = [1.0, 0] #forward
+        #command = [1, 0.05] #forward + left
+        #command = [1.5, -0.05] #forward + right
 
-        #command = [-2, 0, 0] #backward
-        #command = [0, 2, 0] #right
-        #command = [2, 0, -0.15] #turn left
+        #command = [-2, 0] #backward
+        #command = [0, 0] #right
+        #command = [2, -0.15] #turn left
 
 
-        #max_rm_iters = 13
-        #if(self.current_timestep > 250):
-        #    max_rm_iters = 8
 
 
         state = []
@@ -316,7 +323,7 @@ class BulletEnv(gym.Env):
         state.extend(action.tolist())
         state.extend(rm_state)
         state.append(self.rm_transition_iters * 0.1)
-        
+        state.append(rm_iters * 0.1)
         #Add dimensions for estimated base vel and foot heights
         state.extend([0, 0, 0, 0, 0, 0, 0])
 

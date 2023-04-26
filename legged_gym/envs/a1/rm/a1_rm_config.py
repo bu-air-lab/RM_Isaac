@@ -22,14 +22,12 @@ class A1RMCfg( LeggedRobotCfg ):
 
     class env( LeggedRobotCfg.env ):
         num_envs = 4096
-        num_observations = 46 #50
-        num_privileged_obs = 46 #50
+        num_observations = 46
+        num_privileged_obs = 46
 
-        rm_iters = 8
-
-        rm_iters_curriculum = False
-        #rm_iters_curriculum = True
-        #max_rm_iters = 10
+        #rm_iters = 8
+        #rm_iters = [5, 10]
+        rm_iters = [6, 12]
 
         min_base_height = 0.25
         min_foot_height = 0.03
@@ -40,12 +38,16 @@ class A1RMCfg( LeggedRobotCfg ):
     class commands (LeggedRobotCfg.commands):
 
         heading_command = False #Directly sample angular velocity command
+        num_commands = 2 #lin_vel_x and ang_vel_yaw
 
         class ranges (LeggedRobotCfg.commands.ranges):
+
             lin_vel_x = [-1, 1] # min max [m/s]
-            lin_vel_y = [-1, 1]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
-            heading = [-3.14, 3.14]
+
+            #Only for walk gait
+            #lin_vel_x = [-0.5, 0.5] # min max [m/s]
+            #ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
 
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
@@ -124,6 +126,6 @@ class A1RMCfgPPO( LeggedRobotCfgPPO ):
 
         run_name = ''
         experiment_name = 'rm_a1'
-        max_iterations = 1500 # number of policy updates
-        load_run = 'rm_walk15' # folder directly containing model files
+        max_iterations = 1000 # number of policy updates
+        load_run = 'rm_three_one1' # folder directly containing model files
         checkpoint = 1000 # saved model iter

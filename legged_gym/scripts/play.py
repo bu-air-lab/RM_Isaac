@@ -43,7 +43,7 @@ def play(args):
 
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 5)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 25)
     env_cfg.terrain.num_rows = 5
     env_cfg.terrain.num_cols = 5
     env_cfg.terrain.curriculum = False
@@ -54,8 +54,7 @@ def play(args):
 
     env_cfg.terrain.mesh_type = 'plane'
 
-    env_cfg.commands.ranges.lin_vel_x = [0.75, 0.75] # min max [m/s]
-    env_cfg.commands.ranges.lin_vel_y = [0, 0]   # min max [m/s]
+    env_cfg.commands.ranges.lin_vel_x = [0.5, 0.5] # min max [m/s]
     env_cfg.commands.ranges.ang_vel_yaw = [0.0, 0.0]    # min max [rad/s]
 
     # prepare environment
@@ -112,8 +111,7 @@ def play(args):
                     'dof_vel': env.dof_vel[robot_index, joint_index].item(),
                     'dof_torque': env.torques[robot_index, joint_index].item(),
                     'command_x': env.commands[robot_index, 0].item(),
-                    'command_y': env.commands[robot_index, 1].item(),
-                    'command_yaw': env.commands[robot_index, 2].item(),
+                    'command_yaw': env.commands[robot_index, 1].item(),
                     'base_vel_x': env.base_lin_vel[robot_index, 0].item(),
                     'base_vel_y': env.base_lin_vel[robot_index, 1].item(),
                     'base_vel_z': env.base_lin_vel[robot_index, 2].item(),

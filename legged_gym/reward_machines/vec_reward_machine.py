@@ -41,7 +41,7 @@ class VecRewardMachine:
         #     next_states[q2_q3_indicies] = 0
 
         #walk gaits are 4-state RMs
-        elif(gait =='walk' or gait == 'bound_walk'):
+        elif(gait =='walk' or gait == 'three_one'):
 
             #Update from q0 -> q1 if true_props = 1
             q0_q1_indicies = (true_props == 1).nonzero()

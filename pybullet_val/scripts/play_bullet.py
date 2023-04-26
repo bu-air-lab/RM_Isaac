@@ -7,7 +7,7 @@ import numpy as np
 import torch
     
 #Load env:
-gait = "three_one"
+gait = "walk"
 env = BulletEnv(gait=gait, isGUI=True)
 
 #Load Policy
@@ -22,11 +22,10 @@ train_cfg_dict = {'algorithm': {'clip_param': 0.2, 'desired_kl': 0.01, 'entropy_
 
 ppo_runner = OnPolicyRunner(BlankEnv(gait), train_cfg_dict)
 
-ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/three_one6.pt")
+ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/walk4.pt")
 
 policy, state_estimator = ppo_runner.get_inference_policy()
 obs,_ = env.reset()
-
 
 for env_step in range(500):
 
