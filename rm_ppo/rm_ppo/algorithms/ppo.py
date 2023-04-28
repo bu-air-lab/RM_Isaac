@@ -40,6 +40,7 @@ class PPO:
     def __init__(self,
                  actor_critic,
                  state_estimator,
+                 isStateEstimator=True,
                  num_learning_epochs=1,
                  num_mini_batches=1,
                  clip_param=0.2,
@@ -60,6 +61,7 @@ class PPO:
         self.desired_kl = desired_kl
         self.schedule = schedule
         self.learning_rate = learning_rate
+        self.isStateEstimator = isStateEstimator
 
         # PPO components
         self.actor_critic = actor_critic
@@ -98,9 +100,11 @@ class PPO:
         if self.actor_critic.is_recurrent:
             self.transition.hidden_states = self.actor_critic.get_hidden_states()
 
-        #Update obs with estimated state (replace features at the end of obs)
-        estimated_state = self.state_estimator(obs)
-        obs = torch.cat((obs[:, :-7], estimated_state),dim=-1)
+        if(self.isStateEstimator):
+
+            #Update obs with estimated state (replace features at the end of obs)
+            estimated_state = self.state_estimator(obs)
+            obs = torch.cat((obs[:, :-7], estimated_state),dim=-1)
 
         # Compute the actions and values
         self.transition.actions = self.actor_critic.act(obs).detach()
@@ -193,17 +197,19 @@ class PPO:
                 mean_value_loss += value_loss.item()
                 mean_surrogate_loss += surrogate_loss.item()
 
-                # Update state_estimator params (via supervised learning)
-                true_state = critic_obs_batch[:,-7:]
-                predicted_state = self.state_estimator(obs_batch)
+                if(self.isStateEstimator):
 
-                state_estimator_computed_loss = self.state_estimator_loss(predicted_state, true_state)
+                    # Update state_estimator params (via supervised learning)
+                    true_state = critic_obs_batch[:,-7:]
+                    predicted_state = self.state_estimator(obs_batch)
 
-                self.state_estimator_optimizer.zero_grad()
-                state_estimator_computed_loss.backward()
-                self.state_estimator_optimizer.step()
+                    state_estimator_computed_loss = self.state_estimator_loss(predicted_state, true_state)
 
-                #print("State Estimator Loss:", state_estimator_computed_loss.item())
+                    self.state_estimator_optimizer.zero_grad()
+                    state_estimator_computed_loss.backward()
+                    self.state_estimator_optimizer.step()
+
+                    #print("State Estimator Loss:", state_estimator_computed_loss.item())
 
 
 

@@ -25,15 +25,17 @@ class A1RMCfg( LeggedRobotCfg ):
         num_observations = 46
         num_privileged_obs = 46
 
-        #rm_iters = 8
-        #rm_iters = [5, 10]
-        rm_iters = [6, 12]
+        rm_iters = [5, 10]
+        #rm_iters = [6, 12]
 
         min_base_height = 0.25
         min_foot_height = 0.03
         max_foot_height = 0.25
 
         max_action_rate = 40
+
+        #Number of historical observations to consider in noRM_history baseline
+        noRM_history_length = 12
 
     class commands (LeggedRobotCfg.commands):
 
@@ -42,12 +44,12 @@ class A1RMCfg( LeggedRobotCfg ):
 
         class ranges (LeggedRobotCfg.commands.ranges):
 
-            lin_vel_x = [-1, 1] # min max [m/s]
-            ang_vel_yaw = [-1, 1]    # min max [rad/s]
+            #lin_vel_x = [-1, 1] # min max [m/s]
+            #ang_vel_yaw = [-1, 1]    # min max [rad/s]
 
             #Only for walk gait
-            #lin_vel_x = [-0.5, 0.5] # min max [m/s]
-            #ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
+            lin_vel_x = [-0.5, 0.5] # min max [m/s]
+            ang_vel_yaw = [-0.5, 0.5]    # min max [rad/s]
 
     class terrain( LeggedRobotCfg.terrain ):
         #mesh_type = 'plane'
