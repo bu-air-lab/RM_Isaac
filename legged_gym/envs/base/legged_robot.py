@@ -144,7 +144,7 @@ class LeggedRobot(BaseRMTask):
         self.RR_mask = torch.zeros(self.num_envs, 4, device=self.device, dtype=torch.long)
         self.RR_mask[:,3] = 1
 
-        #Store the past 2 observations
+        #Store the past 10 observations
         #Used for observation space in naive3T experiments
         self.past_base_vel = []
         self.past_actions = []
@@ -355,7 +355,7 @@ class LeggedRobot(BaseRMTask):
             prop_symbols[q3_q0_envs] = 4
 
 
-        elif(self.gait == 'biped_bound'):
+        elif(self.gait == 'half_bound'):
 
 
             FL_FR_contacts = self.contact_envs(foot_contacts, 

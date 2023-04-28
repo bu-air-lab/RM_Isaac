@@ -174,7 +174,7 @@ def get_RM_state(current_RM_state, foot_contacts, rm_transition_iters, gait_type
                 return 4
 
     #FL/FR -> RR -> FL/FR -> RL -> ...
-    elif(gait_type == 'biped_bound'):
+    elif(gait_type == 'half_bound'):
 
         if(current_RM_state == 1):
 

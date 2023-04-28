@@ -14,7 +14,7 @@ class BlankEnv(gym.Env):
             self.num_obs += 2
         elif(gait == 'walk' or gait == 'three_one'):
             self.num_obs += 4
-        elif(gait == 'biped_bound'):
+        elif(gait == 'half_bound'):
             self.num_obs += 5
         else:
             print("MUST IMPLEMENT NEW GAIT IN blank_env.py")

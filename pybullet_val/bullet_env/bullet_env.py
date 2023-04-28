@@ -258,7 +258,7 @@ class BulletEnv(gym.Env):
             elif(self.current_RM_state == 4):
                 rm_state_encoding.extend([0, 0, 0, 1])
 
-        elif(self.gait == 'biped_bound'):
+        elif(self.gait == 'half_bound'):
 
             if(self.current_RM_state == 1):
                 rm_state_encoding.extend([1, 0, 0, 0, 0])
@@ -294,20 +294,20 @@ class BulletEnv(gym.Env):
         rm_iters = 6
         if(self.current_timestep >= 200 and self.current_timestep < 400):
             rm_iters = 8
-        elif(self.current_timestep >= 400):
+        elif(self.current_timestep >= 400 and self.current_timestep <= 600):
             rm_iters = 10
-        # elif(self.current_timestep >= 600 and self.current_timestep < 800):
-        #     rm_iters = 8
+        elif(self.current_timestep >= 600):
+             rm_iters = 12
         # elif(self.current_timestep >= 800 and self.current_timestep < 1000):
         #     rm_iters = 9
         # elif(self.current_timestep >= 1000 and self.current_timestep < 1200):
         #     rm_iters = 10
         rm_state = self._get_RM_state(rm_iters)
 
-        command = [1, 0] #forward
-        #command = [1.0, 0] #forward
-        #command = [1, 0.05] #forward + left
-        #command = [1.5, -0.05] #forward + right
+        command = [1, -0.02] #forward
+        #command = [1.5, 0] #forward
+        #command = [1.5, 0.04] #forward + left
+        #command = [1.5, -0.065] #forward + right
 
         #command = [-2, 0] #backward
         #command = [0, 0] #right

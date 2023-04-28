@@ -27,8 +27,8 @@ ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/walk4.pt
 policy, state_estimator = ppo_runner.get_inference_policy()
 obs,_ = env.reset()
 
-for env_step in range(500):
-
+for env_step in range(800):
+ 
     obs = torch.Tensor(obs)
 
     #Add estimated base vel and foot heights to observation
@@ -42,3 +42,31 @@ for env_step in range(500):
     action = policy(torch.Tensor(obs)).detach()#.squeeze(0)
 
     obs, rew, done, info = env.step(action.detach())
+
+
+#trot0: [1.5, 0]
+#trot2: [1.5, 0.04]
+#trot4: [1.5, 0.01]
+
+#pace1: [1.5, -0.065]
+#pace3: [1.5, 0.01]
+#pace4: [1.5, 0.075]
+
+#bound1: [1.5, 0.025]
+#bound2: [1.5, 0]
+#bound3: [1.5, -0.03]
+#bound4: [1.5, -0.03]
+
+#half_bound0: [1.5, 0.04]
+#half_bound1: [1.5, 0.06]
+
+#three_one0: [1.5, 0.025]
+#three_one1: [1.5, 0.02]
+#three_one2: [1.5, 0]
+#three_one3: [1.5, 0.025]
+#three_one4: [1.5, -0.02]
+
+
+#walk1: [1, -0.02]
+#walk3: [1, -0.02]
+#walk4: [1, -0.02]

@@ -59,8 +59,7 @@ class VecRewardMachine:
             q3_q0_indicies = (true_props == 4).nonzero()
             next_states[q3_q0_indicies] = 0
 
-        elif(gait == 'bound_skip' or gait == 'pace_skip' or gait == 'biped_bound' 
-            or gait == 'trot_skip' or gait == 'biped_trot' or gait == 'biped_pace'):
+        elif(gait == 'half_bound'):
 
             #Update from q0 -> q1 if true_props = 1
             q0_q1_indicies = (true_props == 1).nonzero()
@@ -92,13 +91,12 @@ class VecRewardMachine:
         self.rm_rews = s_info['computed_reward']
 
         #Find environments that had an RM transition, and replace rm_rews with bonus reward
-        if(experiment_type != 'no_gait' and gait != 'biped_bound' and gait != 'trot_skip' 
-            and gait != 'biped_trot' and gait != 'biped_pace'):
+        if(experiment_type != 'no_gait' and gait != 'half_bound'):
             bonus_envs = (current_states - next_states).nonzero()
             self.rm_rews[bonus_envs] *= self.bonus
         
         #For gaits which include sink state, give 0 reward when transitioning to or at sink state
-        elif(gait == 'biped_bound' or gait == 'trot_skip' or gait == 'biped_trot' or gait == 'biped_pace'):
+        elif(gait == 'half_bound'):
             bonus_envs = (current_states - next_states).nonzero()
             self.rm_rews[bonus_envs] *= self.bonus
 

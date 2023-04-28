@@ -75,16 +75,17 @@ class BaseRMTask():
         self.reward_machine = VecRewardMachine(self.num_envs, self.device)
         self.num_rm_states = 2
 
-        if(gait == 'walk' or gait == 'three_one'):
+        if(gait == 'trot' or gait == 'bound' or gait == 'pace'):
+            self.num_rm_states = 2
+        elif(gait == 'walk' or gait == 'three_one'):
             self.num_rm_states = 4
-        elif(gait == 'biped_bound' or gait == 'trot_skip'):
+        elif(gait == 'half_bound'):
             self.num_rm_states = 5
         elif(gait == 'no_gait'):
             self.num_rm_states = 0
-        elif(gait == 'bound_skip' or gait == 'pace_skip' or gait == 'biped_trot' or gait == 'biped_pace'):
-            self.num_rm_states = 5
         else:
             print("In base_RM_task.py, must define gait")
+            exit()
 
         if(experiment_type == 'rm'):
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
