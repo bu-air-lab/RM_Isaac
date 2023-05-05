@@ -7,8 +7,9 @@ import numpy as np
 import torch
     
 #Load env:
-gait = "walk"
-env = BulletEnv(gait=gait, isGUI=True)
+isgenFootContacts=True
+gait = "three_one"
+env = BulletEnv(gait=gait, isGUI=False)
 
 #Load Policy
 train_cfg_dict = {'algorithm': {'clip_param': 0.2, 'desired_kl': 0.01, 'entropy_coef': 0.01, 'gamma': 0.99, 'lam': 0.95, 'learning_rate': 0.001, 
@@ -22,12 +23,12 @@ train_cfg_dict = {'algorithm': {'clip_param': 0.2, 'desired_kl': 0.01, 'entropy_
 
 ppo_runner = OnPolicyRunner(BlankEnv(gait), train_cfg_dict)
 
-ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/walk4.pt")
+ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/three_one1.pt")
 
 policy, state_estimator = ppo_runner.get_inference_policy()
 obs,_ = env.reset()
 
-for env_step in range(800):
+for env_step in range(150):
  
     obs = torch.Tensor(obs)
 
@@ -43,30 +44,5 @@ for env_step in range(800):
 
     obs, rew, done, info = env.step(action.detach())
 
-
-#trot0: [1.5, 0]
-#trot2: [1.5, 0.04]
-#trot4: [1.5, 0.01]
-
-#pace1: [1.5, -0.065]
-#pace3: [1.5, 0.01]
-#pace4: [1.5, 0.075]
-
-#bound1: [1.5, 0.025]
-#bound2: [1.5, 0]
-#bound3: [1.5, -0.03]
-#bound4: [1.5, -0.03]
-
-#half_bound0: [1.5, 0.04]
-#half_bound1: [1.5, 0.06]
-
-#three_one0: [1.5, 0.025]
-#three_one1: [1.5, 0.02]
-#three_one2: [1.5, 0]
-#three_one3: [1.5, 0.025]
-#three_one4: [1.5, -0.02]
-
-
-#walk1: [1, -0.02]
-#walk3: [1, -0.02]
-#walk4: [1, -0.02]
+if(isgenFootContacts):
+    env.genFootContactsPlot()

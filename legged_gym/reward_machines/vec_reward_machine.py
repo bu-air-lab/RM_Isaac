@@ -91,7 +91,7 @@ class VecRewardMachine:
         self.rm_rews = s_info['computed_reward']
 
         #Find environments that had an RM transition, and replace rm_rews with bonus reward
-        if(experiment_type != 'no_gait' and gait != 'half_bound'):
+        if(gait != 'half_bound'):
             bonus_envs = (current_states - next_states).nonzero()
             self.rm_rews[bonus_envs] *= self.bonus
         

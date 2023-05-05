@@ -93,6 +93,7 @@ class BulletEnv(gym.Env):
         self.current_RM_state = 1
         self.rm_transition_iters = 0
 
+        self.saved_foot_contacts = []
 
     def compute_torques(self, action):
 
@@ -219,6 +220,8 @@ class BulletEnv(gym.Env):
             if(robot_link == foot):
                 foot_contact_vector[index] = 1
 
+        self.saved_foot_contacts.append(foot_contact_vector)
+
         #Update rm_transition_iters before determing new RM state
         self.rm_transition_iters += 1
 
@@ -290,21 +293,29 @@ class BulletEnv(gym.Env):
         #Compute state
         linear_vel, angular_vel = p.getBaseVelocity(self.robot)
 
+        rm_iters = -1
 
-        rm_iters = 6
-        if(self.current_timestep >= 200 and self.current_timestep < 400):
-            rm_iters = 8
-        elif(self.current_timestep >= 400 and self.current_timestep <= 600):
-            rm_iters = 10
-        elif(self.current_timestep >= 600):
-             rm_iters = 12
-        # elif(self.current_timestep >= 800 and self.current_timestep < 1000):
-        #     rm_iters = 9
-        # elif(self.current_timestep >= 1000 and self.current_timestep < 1200):
-        #     rm_iters = 10
+        rm_iters_sequence = []
+        if(self.gait == 'walk'):
+            rm_iters_sequence = [10, 6]
+        else:
+            rm_iters_sequence = [12, 6]
+
+        if(self.current_timestep < 50):
+            rm_iters = rm_iters_sequence[0]
+        elif(self.current_timestep >= 50 and self.current_timestep < 100):
+            rm_iters = rm_iters_sequence[1]
+        elif(self.current_timestep >= 100):
+            rm_iters = rm_iters_sequence[0]
+        # elif(self.current_timestep >= 150 and self.current_timestep < 200):
+        #     rm_iters = rm_iters_sequence[1]
+        # elif(self.current_timestep >= 200):
+        #     rm_iters = rm_iters_sequence[0]
+
+
         rm_state = self._get_RM_state(rm_iters)
 
-        command = [1, -0.02] #forward
+        command = [1.5, 0] #forward
         #command = [1.5, 0] #forward
         #command = [1.5, 0.04] #forward + left
         #command = [1.5, -0.065] #forward + right
@@ -380,3 +391,7 @@ class BulletEnv(gym.Env):
 
     def setEstimatedState(self, state):
         self.estimated_state = state
+
+    def genFootContactsPlot(self):
+
+        utils.gen_foot_contact_diagram(self.saved_foot_contacts, self.gait, None)

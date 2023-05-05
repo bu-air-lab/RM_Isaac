@@ -16,12 +16,9 @@ plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 plt.rcParams.update({'font.size': 18})
 
-#args = get_args()
-gait = 'bound_walk'
+gait = 'half_bound'
 
-experiments = ['no_gait', 'naive', 'naive3T', 'augmented', 'rm']
-#experiments = ['augmented', 'rm']
-#experiments = ['rm']
+experiments = ['noRM_foot_contacts', 'noRM_history', 'rm']
 
 all_rewards = []
 all_stds = []
@@ -87,24 +84,13 @@ for i, experiment in enumerate(experiments):
         std_below.append(reward - all_stds[i,t])
         std_above.append(reward + all_stds[i,t])
 
-    if(experiment == 'naive'):
-        experiment = 'Naive'
-    elif(experiment == 'naive3T'):
-        experiment = 'Naive-3T'
-    elif(experiment == 'augmented'):
-        experiment = 'Augmented'
-    elif(experiment == 'rm'):
+    if(experiment == 'rm'):
         experiment = 'RMLL'
-    elif(experiment == 'no_gait'):
-        experiment = 'No-Gait'
 
     ax.plot(time, all_rewards[i], label=experiment, dashes=dashstyles[i])
     ax.fill_between(time, std_below, std_above, alpha=.1)
 
 ax.legend()
-
-if(gait == 'bound_walk'):
-    gait = 'Three-One'
 
 plt.xlabel('Training Steps (in millions)')
 plt.ylabel('Reward')

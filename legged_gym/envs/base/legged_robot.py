@@ -145,7 +145,7 @@ class LeggedRobot(BaseRMTask):
         self.RR_mask[:,3] = 1
 
         #Store the past 10 observations
-        #Used for observation space in naive10T experiments
+        #Used for observation space in noRM_history experiments
         self.history_length = self.cfg.env.noRM_history_length
         self.obs_history = torch.zeros(self.num_envs, self.num_obs, self.history_length, device=self.device, dtype=torch.float)
 
@@ -706,25 +706,56 @@ class LeggedRobot(BaseRMTask):
             contact = self.contact_forces[:, self.feet_indices, 2] > 1.
             foot_contacts = torch.logical_or(contact, self.last_contacts) 
 
-            self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
-                    self.commands[:, :2] * self.commands_scale,
-                    (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
-                    self.dof_vel * self.obs_scales.dof_vel,
-                    self.actions,
-                    foot_contacts,
-                    self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
-                    self.commanded_rm_iters
-                    ),dim=-1)
-
-        #State space is same for naive and noGait
-        else:
-
-            self.obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
+            self.obs_buf = torch.cat((
                                 self.commands[:, :2] * self.commands_scale,
                                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                 self.dof_vel * self.obs_scales.dof_vel,
-                                self.actions
+                                self.actions,
+                                foot_contacts,
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                self.commanded_rm_iters * self.obs_scales.rm_iters_scale,
+                                torch.zeros(self.num_envs, 7, device=self.device, dtype=torch.float) #placeholder for estimated base_lin_vel and foot heights
                                 ),dim=-1)
+
+            self.privileged_obs_buf = torch.cat((
+                                self.commands[:, :2] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions,
+                                foot_contacts,
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                self.commanded_rm_iters * self.obs_scales.rm_iters_scale,
+                                self.base_lin_vel * self.obs_scales.lin_vel,
+                                self.foot_heights
+                                ),dim=-1)
+
+        #noRM baseline
+        elif(self.experiment_type == 'noRM'):
+
+            self.obs_buf = torch.cat((
+                                self.commands[:, :2] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions,
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                self.commanded_rm_iters * self.obs_scales.rm_iters_scale,
+                                torch.zeros(self.num_envs, 7, device=self.device, dtype=torch.float) #placeholder for estimated base_lin_vel and foot heights
+                                ),dim=-1)
+
+            self.privileged_obs_buf = torch.cat((
+                                self.commands[:, :2] * self.commands_scale,
+                                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
+                                self.dof_vel * self.obs_scales.dof_vel,
+                                self.actions,
+                                self.rm_iters.unsqueeze(1) * self.obs_scales.rm_iters_scale,
+                                self.commanded_rm_iters * self.obs_scales.rm_iters_scale,
+                                self.base_lin_vel * self.obs_scales.lin_vel,
+                                self.foot_heights
+                                ),dim=-1)
+
+        else:
+            print("EXPERIMENT TYPE NOT IMPLEMENTED")
+            exit()
 
         # add perceptive inputs if not blind
         #if self.cfg.terrain.measure_heights:

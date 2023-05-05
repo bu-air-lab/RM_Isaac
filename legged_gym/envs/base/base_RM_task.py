@@ -81,8 +81,6 @@ class BaseRMTask():
             self.num_rm_states = 4
         elif(gait == 'half_bound'):
             self.num_rm_states = 5
-        elif(gait == 'no_gait'):
-            self.num_rm_states = 0
         else:
             print("In base_RM_task.py, must define gait")
             exit()
@@ -91,6 +89,10 @@ class BaseRMTask():
             self.num_obs += self.num_rm_states + 1 #Extra +1 for rm_iters
         elif(experiment_type == 'noRM_history'):
             self.num_obs += (4 + 1) #Extra (4 + 1) for foot contacts + rm_iters
+        elif(experiment_type == 'noRM_foot_contacts'):
+            self.num_obs += (4 + 1) #Extra (4 + 1) for foot contacts + rm_iters
+        elif(experiment_type == 'noRM'):
+            self.num_obs += 1 #Extra + 1 for rm_iters
 
         self.num_privileged_obs = self.num_obs
 

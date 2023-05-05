@@ -89,7 +89,6 @@ def play(args):
 
         estimated_state = state_estimator(obs)
         obs = torch.cat((obs[:, :-7], estimated_state),dim=-1)
-        #obs = torch.cat((obs, estimated_force),dim=-1)
 
         actions = policy(obs.detach())
         obs, _, rews, dones, infos = env.step(actions.detach())
