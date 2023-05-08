@@ -3,10 +3,16 @@ We modified this original repo: https://github.com/leggedrobotics/legged_gym, to
 Our RM implementation inspired by original RM code from https://github.com/RodrigoToroIcarte/reward_machines
 Our implementation is compatible with vectorized environments on GPU
 
+# Installation
+
+1. Install pytorch with cuda and Isaac Gym (see https://github.com/leggedrobotics/legged_gym for details)
+2. Install rm_ppo: ``` cd legged_gym && pip3 install -e .```
+3. Install RM_Isaac: ``` cd RM_Isaac && pip3 install -e .```
+
 # Train
 
 Gait types: trot, bound, pace, walk, three_one, half_bound
-experiment types: rm, noRM_history, noRM_foot_contacts, noRM
+Experiment types: rm, noRM_history, noRM_foot_contacts, noRM
 
 
 Example command to train pace gait, with rm state included in state space, on random seed 18:
