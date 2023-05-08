@@ -11,7 +11,7 @@ Our implementation is compatible with vectorized environments on GPU
 
 # Train
 
-Gait types: trot, bound, pace, walk, three_one, half_bound
+Gait types: trot, bound, pace, walk, three_one, half_bound\
 Experiment types: rm, noRM_history, noRM_foot_contacts, noRM
 
 
@@ -37,7 +37,7 @@ Be sure to update path to model in pybullet_val/scripts/play_bullet.py
 
 # Test:
 
-    First update load_run and checkpoint in config file. Then, run:
+First update load_run and checkpoint in config file. Then, run:
 
 ```
 python3 legged_gym/scripts/play.py --task=a1_rm --gait=pace --experiment=rm --seed=0
