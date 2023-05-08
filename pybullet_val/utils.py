@@ -321,7 +321,14 @@ def gen_foot_contact_diagram(foot_contacts, gait, rm_transition_timesteps):
     #plt.xticks([0, 1, 2], ['January', 'February', 'March'])
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
+    gait_title = gait.capitalize()
+    if(gait == 'three_one'):
+        gait_title = 'Three-One'
+    if(gait == 'half_bound'):
+        gait_title = 'Half-Bound'
+
     plt.xlabel("Timestep")
+    plt.title("Gait: " + gait_title)
     plt.tight_layout()
     plt.savefig(gait+'_foot_contacts.pdf')
 

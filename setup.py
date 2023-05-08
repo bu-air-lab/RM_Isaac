@@ -4,12 +4,12 @@ from distutils.core import setup
 setup(
     name='legged_gym',
     version='1.0.0',
-    author='Nikita Rudin',
+    author='David DeFazio',
     license="BSD-3-Clause",
     packages=find_packages(),
-    author_email='rudinn@ethz.ch',
-    description='Isaac Gym environments for Legged Robots',
+    author_email='ddefazi1@binghamton.edu',
+    description='Extended legged_gym environment with reward machine',
     install_requires=['isaacgym',
-                      'rsl-rl',
+                      'rm_ppo',
                       'matplotlib']
 )

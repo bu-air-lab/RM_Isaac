@@ -299,14 +299,14 @@ class BulletEnv(gym.Env):
         if(self.gait == 'walk'):
             rm_iters_sequence = [10, 6]
         else:
-            rm_iters_sequence = [12, 6]
+            rm_iters_sequence = [10, 8, 6]
 
-        if(self.current_timestep < 50):
+        if(self.current_timestep < 200):
             rm_iters = rm_iters_sequence[0]
-        elif(self.current_timestep >= 50 and self.current_timestep < 100):
+        elif(self.current_timestep >= 200 and self.current_timestep < 400):
             rm_iters = rm_iters_sequence[1]
-        elif(self.current_timestep >= 100):
-            rm_iters = rm_iters_sequence[0]
+        elif(self.current_timestep >= 400):
+            rm_iters = rm_iters_sequence[2]
         # elif(self.current_timestep >= 150 and self.current_timestep < 200):
         #     rm_iters = rm_iters_sequence[1]
         # elif(self.current_timestep >= 200):
@@ -315,8 +315,8 @@ class BulletEnv(gym.Env):
 
         rm_state = self._get_RM_state(rm_iters)
 
+        #command = [1, 0] #forward
         command = [1.5, 0] #forward
-        #command = [1.5, 0] #forward
         #command = [1.5, 0.04] #forward + left
         #command = [1.5, -0.065] #forward + right
 

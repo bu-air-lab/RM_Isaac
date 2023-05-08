@@ -8,8 +8,8 @@ import torch
     
 #Load env:
 isgenFootContacts=True
-gait = "three_one"
-env = BulletEnv(gait=gait, isGUI=False)
+gait = "half_bound"
+env = BulletEnv(gait=gait, isGUI=True)
 
 #Load Policy
 train_cfg_dict = {'algorithm': {'clip_param': 0.2, 'desired_kl': 0.01, 'entropy_coef': 0.01, 'gamma': 0.99, 'lam': 0.95, 'learning_rate': 0.001, 
@@ -23,12 +23,12 @@ train_cfg_dict = {'algorithm': {'clip_param': 0.2, 'desired_kl': 0.01, 'entropy_
 
 ppo_runner = OnPolicyRunner(BlankEnv(gait), train_cfg_dict)
 
-ppo_runner.load("/home/david/Desktop/RM_Isaac/pybullet_val/saved_models/three_one1.pt")
+ppo_runner.load("path to model here")
 
 policy, state_estimator = ppo_runner.get_inference_policy()
 obs,_ = env.reset()
 
-for env_step in range(150):
+for env_step in range(600):
  
     obs = torch.Tensor(obs)
 

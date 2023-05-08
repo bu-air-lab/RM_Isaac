@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(name='rm_ppo',
       version='1.0.2',
-      # author='Nikita Rudin',
-      # author_email='rudinn@ethz.ch',
-      # license="BSD-3-Clause",
+      author='David DeFazio',
+      author_email='ddefazi1@binghamton.edu',
+      license="BSD-3-Clause",
       packages=find_packages(),
-      description='Fast and simple RL algorithms implemented in pytorch',
+      description='Extended rsl_rl to include state estimation',
       python_requires='>=3.6',
       install_requires=[
             "torch>=1.4.0",

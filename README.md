@@ -5,8 +5,8 @@ Our implementation is compatible with vectorized environments on GPU
 
 # Train
 
-Gait types: trot, bound, pace, walk, bound_walk
-experiment types: rm, naive, augmented, naive3T, no_gait
+Gait types: trot, bound, pace, walk, three_one, half_bound
+experiment types: rm, noRM_history, noRM_foot_contacts, noRM
 
 
 Example command to train pace gait, with rm state included in state space, on random seed 18:
@@ -26,6 +26,8 @@ Sim-to-sim transfer to PyBullet:
 cd pybullet_val
 python3 -m scripts.play_bullet.py
 ```
+
+Be sure to update path to model in pybullet_val/scripts/play_bullet.py
 
 # Test:
 

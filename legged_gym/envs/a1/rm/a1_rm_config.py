@@ -128,6 +128,6 @@ class A1RMCfgPPO( LeggedRobotCfgPPO ):
 
         run_name = ''
         experiment_name = 'rm_a1'
-        max_iterations = 1000 # number of policy updates
+        max_iterations = 1500 # number of policy updates
         load_run = 'rm_bound0' # folder directly containing model files
         checkpoint = 1000 # saved model iter

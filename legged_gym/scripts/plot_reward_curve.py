@@ -18,7 +18,7 @@ plt.rcParams.update({'font.size': 18})
 
 gait = 'half_bound'
 
-experiments = ['noRM_foot_contacts', 'noRM_history', 'rm']
+experiments = ['noRM', 'noRM_foot_contacts', 'noRM_history', 'rm']
 
 all_rewards = []
 all_stds = []
@@ -86,14 +86,24 @@ for i, experiment in enumerate(experiments):
 
     if(experiment == 'rm'):
         experiment = 'RMLL'
-
+    if(experiment == 'noRM_foot_contacts'):
+        experiment = 'No-RM-Foot-Contacts'
+    if(experiment == 'noRM_history'):
+        experiment = 'No-RM-History'
+    if(experiment == 'noRM'):
+        experiment = 'No-RM'
     ax.plot(time, all_rewards[i], label=experiment, dashes=dashstyles[i])
     ax.fill_between(time, std_below, std_above, alpha=.1)
 
 ax.legend()
 
+gait_title = gait.capitalize()
+if(gait == 'three_one'):
+    gait_title = 'Three-One'
+if(gait == 'half_bound'):
+    gait_title = 'Half-Bound'
+
 plt.xlabel('Training Steps (in millions)')
 plt.ylabel('Reward')
-#plt.title('Reward Curves for ' + args.gait.capitalize() + ' Gait')
-plt.title('Gait: ' + gait.capitalize())
+plt.title('Gait: ' + gait_title)
 plt.savefig("plot_" + gait + ".pdf", bbox_inches='tight')
